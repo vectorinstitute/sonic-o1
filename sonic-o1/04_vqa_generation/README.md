@@ -13,17 +13,17 @@ This directory handles automatic generation of three video QA-related tasks usin
 04_vqa_generation/
 ├── main.py                      # Main VQA generation script
 ├── fill_empty_demographics.py   # Fill empty demographics in VQA files
-├── standardize_demographics.py # Standardize demographics to canonical categories
-├── vqa_config.yaml             # Configuration file
-├── .env                        # API keys (create this file)
-├── README.md                   # This file
+├── standardize_demographics.py  # Standardize demographics to canonical categories
+├── vqa_config.yaml              # Configuration file
+├── .env                         # API keys (create this file)
+├── README.md                    # This file
 │
 ├── models/                      # Model implementations
-│   ├── base_gemini.py
-│   ├── summarization_model.py
-│   ├── mcq_model.py
-│   ├── temporal_localization_model.py
-│   └── temporal_question_judge.py
+│   ├── base_gemini.py           # Base Gemini client (shared API logic + dry-run)
+│   ├── summarization_model.py   # Task 1: video summarization
+│   ├── mcq_model.py             # Task 2: multiple-choice questions
+│   ├── temporal_localization_model.py  # Task 3: temporal localization
+│   └── temporal_question_judge.py      # GPT-4V validation judge
 │
 ├── prompts/                     # Prompt templates
 │   ├── summarization_prompts.py
@@ -31,7 +31,9 @@ This directory handles automatic generation of three video QA-related tasks usin
 │   ├── temporal_localization_prompts.py
 │   └── temporal_judge_prompts.py
 │
-└── utils/                       # Utility modules
+└── utils/                       # Shared utility modules
+    ├── config_utils.py          # Config class and YAML loader (shared)
+    ├── file_utils.py            # JSON backup/save helpers (shared)
     ├── demographics_expander.py
     ├── frame_sampler.py
     └── video_segmenter.py
@@ -80,9 +82,11 @@ This directory handles automatic generation of three video QA-related tasks usin
 - **Multimodal Analysis**: Combines video, audio, and transcript data
 - **Automatic Segmentation**: Handles long videos by splitting into segments
 - **Demographics Integration**: Includes demographic information in VQA entries
+- **Dry-Run Mode**: Test the full pipeline without API calls (`--dry-run`)
 - **Rate Limiting**: Configurable delays to avoid API limits
 - **Error Handling**: Retries, validation, and graceful degradation
 - **Skip Existing**: Automatically skips videos that already have VQA generated
+- **Shared Utilities**: Common config loading (`utils/config_utils.py`) and file I/O (`utils/file_utils.py`) across scripts
 
 ## Prerequisites
 
@@ -210,6 +214,18 @@ processing:
 **IMPORTANT**: Always run the scripts from the project root
 (sonic-o1/sonic-o1 directory) so relative paths work correctly.
 
+### Dry Run (No API Calls)
+
+Verify the pipeline end-to-end without spending API credits:
+
+```bash
+# Dry run - exercises all code paths with stub responses, writes nothing
+python 04_vqa_generation/main.py --dry-run --all
+
+# Dry run for a single topic and task
+python 04_vqa_generation/main.py --dry-run --topics 1 --task summarization
+```
+
 ### Process All Topics - All Tasks
 
 ```bash
@@ -290,6 +306,7 @@ The main script supports several command-line arguments:
 | `--all` | Process all topics | `--all` |
 | `--task` | Process specific task only | `--task summarization` |
 | `--output` | Output directory (overrides config) | `--output custom_output/` |
+| `--dry-run` | Run without API calls; generates stub outputs | `--dry-run` |
 
 **Examples:**
 
@@ -515,13 +532,18 @@ gemini:
 
 ## Files
 
-- `main.py` - Main VQA generation script
-- `fill_empty_demographics.py` - Fill empty demographics in VQA files
-- `standardize_demographics.py` - Standardize demographics to canonical categories
+- `main.py` - Main VQA generation script (supports `--dry-run`)
+- `fill_empty_demographics.py` - Fill empty demographics in VQA files (supports `--dry-run`)
+- `standardize_demographics.py` - Standardize demographics to canonical categories (supports `--dry-run`)
 - `vqa_config.yaml` - Configuration file
-- `models/` - Model implementations (base_gemini, summarization, mcq, temporal)
+- `models/` - Model implementations (base_gemini, summarization, mcq, temporal, judge)
 - `prompts/` - Prompt templates for each task
-- `utils/` - Utility modules (demographics_expander, frame_sampler, video_segmenter)
+- `utils/` - Shared utilities
+  - `config_utils.py` - `Config` class and `load_config()` (used by all scripts)
+  - `file_utils.py` - `save_json_with_backup()` (used by demographics scripts)
+  - `demographics_expander.py` - Expand human-reviewed demographics via Gemini
+  - `frame_sampler.py` - Sample video frames for GPT-4V judge
+  - `video_segmenter.py` - Segment video/audio via FFmpeg
 - `.env` - Environment variables (API keys) - create this file
 
 ## Notes

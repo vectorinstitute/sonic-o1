@@ -30,14 +30,15 @@ logger = logging.getLogger(__name__)
 class SummarizationModel(BaseGeminiClient):
     """Generate video-level summarization VQA entries."""
 
-    def __init__(self, config):
+    def __init__(self, config, dry_run: bool = False):
         """
         Initialize summarization model.
 
         Args:
             config: Configuration object
+            dry_run: If True, skip API calls and return stub responses.
         """
-        super().__init__(config)
+        super().__init__(config, dry_run=dry_run)
         self.config = config
         self.segmenter = VideoSegmenter(config)
         self.demographics_expander = DemographicsExpander(config)
@@ -153,18 +154,7 @@ class SummarizationModel(BaseGeminiClient):
             video_path, audio_path, transcript_path, metadata, segments_info=None
         )
 
-        return {
-            "video_id": video_id,
-            "video_number": metadata.get("video_number", video_id),
-            "duration_seconds": metadata.get("duration_seconds", 0),
-            "segments_processed": None,
-            "summary_short": summary_data.get("summary_short", []),
-            "summary_detailed": summary_data.get("summary_detailed", ""),
-            "timeline": summary_data.get("timeline", []),
-            "glossary": summary_data.get("glossary", []),
-            "demographics": demographics.get("demographics", []),
-            "confidence": summary_data.get("confidence", 0.0),
-        }
+        return self._create_entry(video_id, metadata, summary_data, demographics)
 
     def _process_segmented_video(
         self,
@@ -233,20 +223,12 @@ class SummarizationModel(BaseGeminiClient):
         except Exception as e:
             logger.warning(f"Failed to cleanup segments: {e}")
 
-        return {
-            "video_id": video_id,
-            "video_number": metadata.get("video_number", video_id),
-            "duration_seconds": duration,
-            "segments_processed": [
-                {"start": s["start"], "end": s["end"]} for s in video_segments
-            ],
-            "summary_short": merged_summary.get("summary_short", []),
-            "summary_detailed": merged_summary.get("summary_detailed", ""),
-            "timeline": merged_summary.get("timeline", []),
-            "glossary": merged_summary.get("glossary", []),
-            "demographics": demographics.get("demographics", []),
-            "confidence": merged_summary.get("confidence", 0.0),
-        }
+        segments_processed = [
+            {"start": s["start"], "end": s["end"]} for s in video_segments
+        ]
+        return self._create_entry(
+            video_id, metadata, merged_summary, demographics, segments_processed
+        )
 
     def _generate_segment_summary(
         self,
@@ -782,6 +764,28 @@ class SummarizationModel(BaseGeminiClient):
         except Exception as e:
             logger.error(f"Failed to parse segment summary: {e}", exc_info=True)
             return self._get_default_segment_summary()
+
+    def _create_entry(
+        self,
+        video_id: str,
+        metadata: Dict[str, Any],
+        summary_data: Dict[str, Any],
+        demographics: Dict[str, Any],
+        segments_processed: Optional[List[Dict]] = None,
+    ) -> Dict[str, Any]:
+        """Assemble a Task 1 VQA entry from summary and demographics data."""
+        return {
+            "video_id": video_id,
+            "video_number": metadata.get("video_number", video_id),
+            "duration_seconds": metadata.get("duration_seconds", 0),
+            "segments_processed": segments_processed,
+            "summary_short": summary_data.get("summary_short", []),
+            "summary_detailed": summary_data.get("summary_detailed", ""),
+            "timeline": summary_data.get("timeline", []),
+            "glossary": summary_data.get("glossary", []),
+            "demographics": demographics.get("demographics", []),
+            "confidence": summary_data.get("confidence", 0.0),
+        }
 
     def _get_error_entry(
         self, metadata: Dict[str, Any], error_msg: str

@@ -24,14 +24,15 @@ logger = logging.getLogger(__name__)
 class MCQModel(BaseGeminiClient):
     """Generate segment-level MCQ VQA entries."""
 
-    def __init__(self, config):
+    def __init__(self, config, dry_run: bool = False):
         """
         Initialize MCQ model.
 
         Args:
             config: Configuration object
+            dry_run: If True, skip API calls and return stub responses.
         """
-        super().__init__(config)
+        super().__init__(config, dry_run=dry_run)
         self.config = config
         self.segmenter = VideoSegmenter(config)
         self.demographics_expander = DemographicsExpander(config)
@@ -383,27 +384,17 @@ class MCQModel(BaseGeminiClient):
 
         return options
 
-    def _format_option_with_letter(self, option: str, letter: str) -> str:
-        """Format option with letter prefix, removing any existing prefix."""
-        cleaned = option.strip()
-        # Remove any existing letter prefix
-        for existing_letter in self.option_letters:
-            if cleaned.startswith(f"({existing_letter})"):
-                cleaned = cleaned[3:].strip()
-                break
-        return f"({letter}) {cleaned}"
-
     def _format_options_with_letters(self, options: List[str]) -> List[str]:
-        """Format all options with correct letter prefixes."""
+        """Assign correct letter prefixes, replacing any existing ones."""
         formatted = []
-        for i, option in enumerate(options):
-            letter = self.option_letters[i]
-            formatted.append(self._format_option_with_letter(option, letter))
+        for letter, option in zip(self.option_letters, options):
+            cleaned = option.strip()
+            if len(cleaned) >= 3 and cleaned[0] == "(" and cleaned[2] == ")":
+                cleaned = cleaned[3:].strip()
+            formatted.append(f"({letter}) {cleaned}")
         return formatted
 
-    def _validate_answer_fields(
-        self, data: Dict[str, Any]
-    ) -> tuple[int, str]:
+    def _validate_answer_fields(self, data: Dict[str, Any]) -> tuple[int, str]:
         """Validate and normalize answer_index and answer_letter."""
         expected_num_options = self.num_options
         answer_index = int(data.get("answer_index", expected_num_options - 1))

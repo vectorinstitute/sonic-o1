@@ -47,11 +47,6 @@ class DemographicsExpander:
         age_list = metadata_demographics.get("age", [])
         language_list = metadata_demographics.get("language", [])
 
-        ", ".join(race_list) if race_list else "Not specified"
-        ", ".join(gender_list) if gender_list else "Not specified"
-        ", ".join(age_list) if age_list else "Not specified"
-        ", ".join(language_list) if language_list else "Not specified"
-
         segment_context = ""
         if segment_info:
             seg_start = segment_info["start"]

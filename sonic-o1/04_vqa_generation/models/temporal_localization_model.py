@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import openai
 from prompts.temporal_judge_prompts import (
-    build_batch_validation_system_prompt,
+    BATCH_VALIDATION_SYSTEM_PROMPT,
     build_validation_prompt,
 )
 from prompts.temporal_localization_prompts import get_temporal_localization_prompt
@@ -43,30 +43,33 @@ logger = logging.getLogger(__name__)
 class TemporalLocalizationModel(BaseGeminiClient):
     """Generate segment-level temporal localization VQA entries."""
 
-    def __init__(self, config):
+    def __init__(self, config, dry_run: bool = False):
         """
         Initialize Temporal Localization model.
 
         Args:
             config: Configuration object
+            dry_run: If True, skip API calls and return stub responses.
         """
-        super().__init__(config)
+        super().__init__(config, dry_run=dry_run)
         self.config = config
         self.segmenter = VideoSegmenter(config)
         self.demographics_expander = DemographicsExpander(config)
         self.frame_sampler = FrameSampler(config)
 
-        # Get questions per segment from config
         self.questions_per_segment = int(
             config.temporal_localization.questions_per_segment
         )
 
-        # Retry configuration
         self.max_retries = getattr(config.temporal_localization, "max_retries", 3)
-        self.retry_delay = getattr(
-            config.temporal_localization, "retry_delay", 2
-        )  # seconds
-        # Initialize GPT-4V judge
+        self.retry_delay = getattr(config.temporal_localization, "retry_delay", 2)
+
+        if dry_run:
+            self.judge_enabled = False
+            self.openai_client = None
+            logger.info("[DRY-RUN] GPT-4V judge disabled")
+            return
+
         try:
             api_key = os.getenv("OPENAI_API_KEY")
             if api_key:
@@ -105,7 +108,8 @@ class TemporalLocalizationModel(BaseGeminiClient):
             transcript_path: Path to transcript/caption file (optional).
             metadata: Video metadata from metadata_enhanced.json.
 
-        Returns:
+        Returns
+        -------
             List of VQA entry dicts for Task 3 (one per segment, multi-Q).
         """
         # Track segments to cleanup AFTER processing completes
@@ -165,11 +169,11 @@ class TemporalLocalizationModel(BaseGeminiClient):
                     )
                     continue
 
-                nq = sum(e["num_questions"] for e in temporal_entries)
-                logger.info(
-                    f"Generated {len(temporal_entries)} segment entries "
-                    f"({nq} questions) for video {video_id}"
-                )
+            nq = sum(e["num_questions"] for e in temporal_entries)
+            logger.info(
+                f"Generated {len(temporal_entries)} segment entries "
+                f"({nq} questions) for video {video_id}"
+            )
             return temporal_entries
 
         except Exception as e:
@@ -322,7 +326,7 @@ class TemporalLocalizationModel(BaseGeminiClient):
             return []
 
         logger.info(f"Judge video path: {video_path}")
-        logger.info(f"Judge video exists: True")
+        logger.info("Judge video exists: True")
         logger.info(f"Judge video size: {Path(video_path).stat().st_size} bytes")
 
         result = subprocess.run(
@@ -341,20 +345,16 @@ class TemporalLocalizationModel(BaseGeminiClient):
             check=False,
         )
         actual_duration = float(result.stdout.strip())
-        frame_end = min(
-            actual_duration, segment_info["end"] - segment_info["start"]
-        )
+        frame_end = min(actual_duration, segment_info["end"] - segment_info["start"])
 
         cfg = self.config.temporal_localization
-        frame_paths = self.frame_sampler.sample_frames_from_segment(
+        return self.frame_sampler.sample_frames_from_segment(
             video_path=Path(video_path),
             segment_start=0.0,
             segment_end=frame_end,
             num_frames=self.judge_frame_count,
             strategy=cfg.judge_frame_strategy,
         )
-
-        return frame_paths
 
     def _apply_judge_validation(
         self,
@@ -384,9 +384,7 @@ class TemporalLocalizationModel(BaseGeminiClient):
 
         if validation_stats["total"] > 0:
             val_rate = validation_stats["valid"] / validation_stats["total"]
-            entry["confidence"] = round(
-                entry["confidence"] * (0.7 + 0.3 * val_rate), 3
-            )
+            entry["confidence"] = round(entry["confidence"] * (0.7 + 0.3 * val_rate), 3)
 
         v, t, f = (
             validation_stats["valid"],
@@ -607,7 +605,7 @@ class TemporalLocalizationModel(BaseGeminiClient):
                 messages=[
                     {
                         "role": "system",
-                        "content": build_batch_validation_system_prompt(),
+                        "content": BATCH_VALIDATION_SYSTEM_PROMPT,
                     },
                     {
                         "role": "user",
@@ -791,9 +789,7 @@ class TemporalLocalizationModel(BaseGeminiClient):
                             fixed = True
 
                 # Check bounds on relative timestamps
-                if not self._check_relative_bounds(
-                    start_s, end_s, segment_duration, i
-                ):
+                if not self._check_relative_bounds(start_s, end_s, segment_duration, i):
                     stats["dropped"] += 1
                     stats["reasons"]["out_of_bounds"] = (
                         stats["reasons"].get("out_of_bounds", 0) + 1

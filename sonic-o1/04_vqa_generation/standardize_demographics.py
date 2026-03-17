@@ -21,7 +21,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import yaml
+from utils.config_utils import Config, load_config
+from utils.file_utils import save_json_with_backup
 
 
 # Setup logging
@@ -34,37 +35,6 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger(__name__)
-
-
-class Config:
-    """Configuration wrapper."""
-
-    def __init__(self, config_dict):
-        for key, value in config_dict.items():
-            if isinstance(value, dict):
-                setattr(self, key, Config(value))
-            else:
-                setattr(self, key, value)
-
-
-def load_config(config_path: str) -> Config:
-    """Load configuration from YAML file.
-
-    Args:
-        config_path: Path to config file. If relative, resolved relative
-            to this script's directory.
-
-    Returns
-    -------
-        Config object with nested attribute access.
-    """
-    config_file = Path(config_path)
-    if not config_file.is_absolute():
-        config_file = Path(__file__).parent / config_path
-
-    with open(config_file, "r") as f:
-        config_dict = yaml.safe_load(f)
-    return Config(config_dict)
 
 
 class DemographicsStandardizer:
@@ -276,141 +246,162 @@ class DemographicsStandardizer:
             "unknown_removed": 0,
         }
 
+    def _apply_mapping(
+        self,
+        value: str,
+        value_lower: str,
+        original: str,
+        mappings: Dict,
+        canonical: set,
+        changes_counter: Counter,
+        out_of_scope_counter: Counter,
+    ) -> Tuple[str, bool]:
+        """Check canonical set, try mapping table, track stats.
+
+        Shared by all per-category standardize methods.
+        """
+        if value in canonical:
+            return value, False
+        if value_lower in mappings:
+            new_value = mappings[value_lower]
+            changes_counter[f"{original} -> {new_value}"] += 1
+            return new_value, True
+        if value_lower != "unknown":
+            out_of_scope_counter[original] += 1
+        return value, False
+
+    def standardize_race(self, value: str) -> Tuple[str, bool]:
+        """Standardize a race/ethnicity value."""
+        original = value
+        value_lower = value.lower()
+        # "White, Hispanic" → prioritise minority
+        if "," in value and "white" in value_lower and "hispanic" in value_lower:
+            self.stats["race_changes"][f"{original} -> Hispanic"] += 1
+            return "Hispanic", True
+        # "Not specified" → Unknown
+        if "not specified" in value_lower:
+            return "Unknown", True
+        return self._apply_mapping(
+            value,
+            value_lower,
+            original,
+            self.RACE_MAPPINGS,
+            self.CANONICAL_RACE,
+            self.stats["race_changes"],
+            self.stats["out_of_scope_race"],
+        )
+
+    def standardize_gender(self, value: str) -> Tuple[str, bool]:
+        """Standardize a gender value."""
+        original = value
+        value_lower = value.lower()
+        return self._apply_mapping(
+            value,
+            value_lower,
+            original,
+            self.GENDER_MAPPINGS,
+            self.CANONICAL_GENDER,
+            self.stats["gender_changes"],
+            self.stats["out_of_scope_gender"],
+        )
+
+    def standardize_age(self, value: str) -> Tuple[str, bool]:
+        """Standardize an age value."""
+        original = value
+        value_lower = value.lower()
+        # Children / under-18 → youngest bracket
+        if (
+            "under" in value_lower
+            or "child" in value_lower
+            or value_lower.startswith("young (under")
+        ):
+            value_lower = "young (18-24)"
+        return self._apply_mapping(
+            value,
+            value_lower,
+            original,
+            self.AGE_MAPPINGS,
+            self.CANONICAL_AGE,
+            self.stats["age_changes"],
+            self.stats["out_of_scope_age"],
+        )
+
+    def standardize_language(self, value: str) -> Tuple[str, bool]:
+        """Standardize a language value."""
+        original = value
+        value_lower = value.lower()
+        return self._apply_mapping(
+            value,
+            value_lower,
+            original,
+            self.LANGUAGE_MAPPINGS,
+            self.CANONICAL_LANGUAGE,
+            self.stats["language_changes"],
+            self.stats["out_of_scope_language"],
+        )
+
     def standardize_value(self, value: str, category: str) -> Tuple[str, bool]:
         """
-        Standardize a single demographic value.
+        Dispatch to the appropriate per-category standardize method.
 
         Args:
-            value: Original value
-            category: 'race', 'gender', 'age', or 'language'
+            value: Original demographic value.
+            category: One of "race", "gender", "age", "language".
 
         Returns
         -------
-            Tuple of (standardized_value, was_changed)
+            Tuple of (standardized_value, was_changed).
         """
         value = value.strip()
         if not value or value.lower() == "unknown":
             return value, False
 
-        original = value
-        value_lower = value.lower()
-
-        # Special case handling before mapping
-        if category == "race":
-            # Handle multi-racial entries - keep first race mentioned
-            if "mixed-race" in value_lower or "mixed race" in value_lower:
-                # Map to Asian as default (most common in dataset)
-                pass
-            elif "," in value and "white" in value_lower and "hispanic" in value_lower:
-                # "White, Hispanic" -> "Hispanic" (prioritize minority)
-                value_lower = "hispanic"
-                mappings = self.RACE_MAPPINGS
-                canonical = self.CANONICAL_RACE
-                out_of_scope = self.stats["out_of_scope_race"]
-                new_value = "Hispanic"
-                self.stats["race_changes"][f"{original} -> {new_value}"] += 1
-                return new_value, True
-            elif "not specified" in value_lower:
-                # Map to Unknown
-                return "Unknown", True
-
-        elif category == "age" and (
-            "under" in value_lower
-            or "child" in value_lower
-            or value_lower.startswith("young (under")
-        ):
-            # Handle children - map to youngest bracket
-            value_lower = "young (18-24)"
-
-        # Select appropriate mappings
-        if category == "race":
-            mappings = self.RACE_MAPPINGS
-            canonical = self.CANONICAL_RACE
-            out_of_scope = self.stats["out_of_scope_race"]
-        elif category == "gender":
-            mappings = self.GENDER_MAPPINGS
-            canonical = self.CANONICAL_GENDER
-            out_of_scope = self.stats["out_of_scope_gender"]
-        elif category == "age":
-            mappings = self.AGE_MAPPINGS
-            canonical = self.CANONICAL_AGE
-            out_of_scope = self.stats["out_of_scope_age"]
-        elif category == "language":
-            mappings = self.LANGUAGE_MAPPINGS
-            canonical = self.CANONICAL_LANGUAGE
-            out_of_scope = self.stats["out_of_scope_language"]
-        else:
+        dispatch = {
+            "race": self.standardize_race,
+            "gender": self.standardize_gender,
+            "age": self.standardize_age,
+            "language": self.standardize_language,
+        }
+        fn = dispatch.get(category)
+        if fn is None:
             return value, False
+        return fn(value)
 
-        # Check if already canonical
-        if value in canonical:
-            return value, False
-
-        # Try to map
-        if value_lower in mappings:
-            new_value = mappings[value_lower]
-            if category == "race":
-                self.stats["race_changes"][f"{original} -> {new_value}"] += 1
-            elif category == "gender":
-                self.stats["gender_changes"][f"{original} -> {new_value}"] += 1
-            elif category == "age":
-                self.stats["age_changes"][f"{original} -> {new_value}"] += 1
-            elif category == "language":
-                self.stats["language_changes"][f"{original} -> {new_value}"] += 1
-            return new_value, True
-
-        # Not found in mappings - track as out of scope
-        if value.lower() != "unknown":
-            out_of_scope[original] += 1
-
-        return value, False
-
-    def standardize_demographic_entry(self, entry: Dict[str, Any]) -> bool:
+    def standardize_field(self, key: str, entry: Dict[str, Any]) -> bool:
         """
-        Standardize a single demographic entry.
+        Standardize a single field of a demographic entry in-place.
 
         Args:
-            entry: Demographic entry dict with race, gender, age, language, count
+            key: Field name — one of "race", "gender", "age", "language".
+            entry: Demographic entry dict to update.
 
         Returns
         -------
-            True if any changes were made
+            True if the field value was changed.
         """
-        changed = False
-
-        # Standardize race
-        if "race" in entry:
-            new_race, race_changed = self.standardize_value(entry["race"], "race")
-            if race_changed:
-                entry["race"] = new_race
-                changed = True
-
-        # Standardize gender
-        if "gender" in entry:
-            new_gender, gender_changed = self.standardize_value(
-                entry["gender"], "gender"
-            )
-            if gender_changed:
-                entry["gender"] = new_gender
-                changed = True
-
-        # Standardize age
-        if "age" in entry:
-            new_age, age_changed = self.standardize_value(entry["age"], "age")
-            if age_changed:
-                entry["age"] = new_age
-                changed = True
-
-        # Standardize language
-        if "language" in entry:
-            new_language, language_changed = self.standardize_value(
-                entry["language"], "language"
-            )
-            if language_changed:
-                entry["language"] = new_language
-                changed = True
-
+        if key not in entry:
+            return False
+        new_val, changed = self.standardize_value(entry[key], key)
+        if changed:
+            entry[key] = new_val
         return changed
+
+    def standardize_demographic_entry(self, entry: Dict[str, Any]) -> bool:
+        """
+        Standardize all demographic fields of a single entry.
+
+        Args:
+            entry: Demographic entry dict with race, gender, age, language, count.
+
+        Returns
+        -------
+            True if any field was changed.
+        """
+        results = [
+            self.standardize_field(key, entry)
+            for key in ("race", "gender", "age", "language")
+        ]
+        return any(results)
 
     def should_remove_entry(self, entry: Dict[str, Any]) -> bool:
         """
@@ -510,7 +501,7 @@ class DemographicsStandardizer:
 
         return changed
 
-    def process_json_file(self, json_path: Path, task_name: str) -> Dict[str, int]:
+    def process_task_file(self, json_path: Path, task_name: str) -> Dict[str, int]:
         """
         Process a single VQA JSON file.
 
@@ -544,28 +535,16 @@ class DemographicsStandardizer:
             if self.process_vqa_entry(entry, task_name):
                 file_stats["modified"] += 1
 
-        # Save if changes were made (and not dry-run)
         if file_stats["modified"] > 0:
             if self.dry_run:
                 logger.info(
                     f"[DRY-RUN] Would modify {file_stats['modified']} entries in {json_path.name}"
                 )
             else:
-                try:
-                    # Create backup
-                    backup_path = json_path.with_suffix(".json.backup_standardize")
-                    with open(backup_path, "w") as f:
-                        json.dump(data, f, indent=2, ensure_ascii=False)
-                    logger.info(f"Created backup: {backup_path.name}")
-
-                    # Save updated file
-                    with open(json_path, "w") as f:
-                        json.dump(data, f, indent=2, ensure_ascii=False)
-                    logger.info(
-                        f"✓ Saved {file_stats['modified']} changes to {json_path.name}"
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to save {json_path}: {e}")
+                save_json_with_backup(data, json_path, ".json.backup_standardize")
+                logger.info(
+                    f"✓ Saved {file_stats['modified']} changes to {json_path.name}"
+                )
         else:
             logger.info(f"✓ No changes needed for {json_path.name}")
 
@@ -621,7 +600,7 @@ class DemographicsStandardizer:
             logger.info(f"Found {len(json_files)} JSON files to process")
 
             for json_path in json_files:
-                self.process_json_file(json_path, task_name)
+                self.process_task_file(json_path, task_name)
 
         # Print final summary
         self.print_summary()
@@ -768,7 +747,7 @@ def main():
         print(f"Error: Config file not found: {config_path}")
         sys.exit(1)
 
-    config = load_config(str(config_path))
+    config = load_config(str(config_path), base_dir=Path(__file__).parent)
 
     # Parse topic filter
     topic_filter = None

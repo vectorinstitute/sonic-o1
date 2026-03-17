@@ -2,6 +2,7 @@
 
 import json
 
+
 # MAP PHASE: Per-segment summarization
 MAP_PHASE_PROMPT = """You are a precise video segment summarizer.
 

@@ -19,8 +19,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
-import yaml
 from tqdm import tqdm
+from utils.config_utils import Config, load_config
 
 
 # Load environment variables from .env file if it exists
@@ -40,37 +40,14 @@ from models import MCQModel, SummarizationModel, TemporalLocalizationModel
 # Setup logging
 logger = logging.getLogger(__name__)
 
-
-class Config:
-    """Configuration wrapper with nested attribute access."""
-
-    def __init__(self, config_dict):
-        """Initialize from nested dict. Recursively wraps dicts as Config."""
-        for key, value in config_dict.items():
-            if isinstance(value, dict):
-                setattr(self, key, Config(value))
-            else:
-                setattr(self, key, value)
-
-
-def load_config(config_path: str) -> Config:
-    """Load configuration from YAML file.
-
-    Args:
-        config_path: Path to configuration file. If relative, resolved
-            relative to this script's directory.
-
-    Returns
-    -------
-        Config object with nested attribute access.
-    """
-    config_file = Path(config_path)
-    if not config_file.is_absolute():
-        config_file = Path(__file__).parent / config_path
-
-    with open(config_file, "r") as f:
-        config_dict = yaml.safe_load(f)
-    return Config(config_dict)
+# Registry of all tasks: (cli_key, model_class, output_dir_name, multi_entry)
+# multi_entry=True  -- model.process_video() returns List[Dict] (one per segment)
+# multi_entry=False -- model.process_video() returns Dict    (one per video)
+TASKS = [
+    ("summarization", SummarizationModel, "task1_summarization", False),
+    ("mcq", MCQModel, "task2_mcq", True),
+    ("temporal", TemporalLocalizationModel, "task3_temporal_localization", True),
+]
 
 
 def load_metadata_for_topic(topic_dir: Path) -> List[Dict[str, Any]]:
@@ -137,320 +114,246 @@ def get_file_paths(video_meta: Dict[str, Any], topic_dir: Path) -> Dict[str, Pat
     }
 
 
+def get_confidence(entry: Dict[str, Any]) -> float:
+    """Return the confidence score of a VQA entry."""
+    return float(entry.get("confidence", 0))
+
+
+def get_summary_detailed(entry: Dict[str, Any]) -> str:
+    """Return the detailed summary text of a Task 1 entry."""
+    return entry.get("summary_detailed", "")
+
+
+_SUMMARY_FAIL_PATTERNS = (
+    "unavailable",
+    "summary generation failed",
+    "could not be generated",
+    "summary failed",
+)
+
+
+def get_summary_failed(entry: Dict[str, Any]) -> bool:
+    """Return True if a Task 1 entry contains known failure markers."""
+    for item in entry.get("summary_short", []):
+        if isinstance(item, str):
+            lower = item.lower()
+            if any(p in lower for p in _SUMMARY_FAIL_PATTERNS):
+                return True
+            if "first segment" in lower and "failed" in lower:
+                return True
+
+    lower_detailed = get_summary_detailed(entry).lower()
+    return (
+        "could not be generated" in lower_detailed
+        or "summary generation failed" in lower_detailed
+        or "parsing error" in lower_detailed
+        or "explicitly reported a failure" in lower_detailed
+        or ("failed to" in lower_detailed and "summary" in lower_detailed)
+    )
+
+
+def skip_task(task_name: str, existing: Dict, video_id: str) -> bool:
+    """Return True if this video already has valid, complete entries for the task."""
+    if video_id not in existing:
+        return False
+
+    if task_name == "task1_summarization":
+        entry = existing[video_id]
+        if get_summary_failed(entry):
+            logger.info("Reprocessing Task 1 for %s (previous failure)", video_id)
+            return False
+        if get_confidence(entry) == 0:
+            logger.info("Reprocessing Task 1 for %s (confidence was 0)", video_id)
+            return False
+        logger.info("Skipping Task 1 for %s (already processed)", video_id)
+        return True
+
+    # Task 2 / Task 3 — list of segment entries per video
+    segment_entries = existing[video_id]
+    if segment_entries and all(get_confidence(e) > 0 for e in segment_entries):
+        logger.info("Skipping %s for %s (already processed)", task_name, video_id)
+        return True
+    return False
+
+
+def _apply_rate_limit(video_category: str, config: Config) -> None:
+    """Sleep between videos according to config rate limits."""
+    delay = int(getattr(config.rate_limit, "delay_between_videos", 15))
+    if video_category == "long":
+        delay += int(getattr(config.rate_limit, "delay_after_long_video", 60))
+        logger.info("Long video — waiting %ss before next", delay)
+    else:
+        logger.info("Waiting %ss before next video (rate limit)", delay)
+    time.sleep(delay)
+
+
 def process_topic(
     topic_id: int,
     topic_name: str,
     topic_dir: Path,
+    task_name: str,
+    model,
+    existing: Dict,
     config: Config,
-    output_dir: Path,
-    task_filter: str = None,
-) -> tuple:
-    """
-    Process all videos in a topic for VQA generation.
+    multi_entry: bool = False,
+) -> List[Dict[str, Any]]:
+    """Process all videos in a topic for a single task.
 
     Args:
-        topic_id: Topic ID (1-13)
-        topic_name: Topic name (e.g., "Patient-Doctor Consultations")
-        topic_dir: Path to topic directory
-        config: Configuration object
-        task_filter: Optional filter - "summarization" or "mcq" (None = both)
+        topic_id: Topic ID (1-13).
+        topic_name: Human-readable topic name.
+        topic_dir: Path to topic video directory.
+        task_name: Output subdirectory name, e.g. "task1_summarization".
+        model: Instantiated task model.
+        existing: Pre-loaded existing entries indexed by video_id.
+        config: Configuration object.
+        multi_entry: True when model.process_video() returns List[Dict]
+            (MCQ/temporal); False when it returns a single Dict (summarization).
 
     Returns
     -------
-        Tuple of (task1_entries, task2_entries)
+        List of VQA entry dicts for this task across all videos.
     """
-    logger.info(f"Processing Topic {topic_id}: {topic_name}")
-
-    # Load metadata
     metadata_list = load_metadata_for_topic(topic_dir)
     if not metadata_list:
-        logger.warning(f"No videos found for topic {topic_id}")
-        return ([], [], [])
+        logger.warning("No videos found for topic %s", topic_id)
+        return []
 
-    # Initialize models
-    task1_entries = []
-    task2_entries = []
-    task3_entries = []
-    # Load existing results if they exist
-    existing_task1 = {}
-    existing_task2 = {}
-    existing_task3 = {}
-    if task_filter is None or task_filter == "summarization":
-        summarizer = SummarizationModel(config)
-        # Check for existing Task 1 output
-        task1_output_file = (
-            output_dir
-            / "task1_summarization"
-            / f"{topic_id:02d}_{topic_name.replace(' ', '_')}.json"
-        )
-        if task1_output_file.exists():
-            with open(task1_output_file, "r") as f:
-                task1_data = json.load(f)
-                # Index by video_id
-                for entry in task1_data.get("entries", []):
-                    existing_task1[entry["video_id"]] = entry
-            logger.info("Loaded %d existing Task 1 entries", len(existing_task1))
+    entries: List[Dict[str, Any]] = []
 
-    if task_filter is None or task_filter == "mcq":
-        mcq_generator = MCQModel(config)
-        # Check for existing Task 2 output
-        task2_output_file = (
-            output_dir
-            / "task2_mcq"
-            / f"{topic_id:02d}_{topic_name.replace(' ', '_')}.json"
-        )
-        if task2_output_file.exists():
-            with open(task2_output_file, "r") as f:
-                task2_data = json.load(f)
-                # Index by video_id
-                for entry in task2_data.get("entries", []):
-                    vid = entry["video_id"]
-                    if vid not in existing_task2:
-                        existing_task2[vid] = []
-                    existing_task2[vid].append(entry)
-            n_task2 = sum(len(v) for v in existing_task2.values())
-            logger.info("Loaded %d existing Task 2 entries", n_task2)
-
-    if task_filter is None or task_filter == "temporal":
-        temporal_generator = TemporalLocalizationModel(config)
-        # Check for existing Task 3 output
-        task3_output_file = (
-            output_dir
-            / "task3_temporal_localization"
-            / f"{topic_id:02d}_{topic_name.replace(' ', '_')}.json"
-        )
-        if task3_output_file.exists():
-            with open(task3_output_file, "r") as f:
-                task3_data = json.load(f)
-                for entry in task3_data.get("entries", []):
-                    vid = entry["video_id"]
-                    if vid not in existing_task3:
-                        existing_task3[vid] = []
-                    existing_task3[vid].append(entry)
-            n_task3 = sum(len(v) for v in existing_task3.values())
-            logger.info("Loaded %d existing Task 3 entries", n_task3)
-
-    # Process each video
-    for video_meta in tqdm(metadata_list, desc=f"Processing {topic_name}"):
+    for video_meta in tqdm(metadata_list, desc=f"Topic {topic_id} / {task_name}"):
         video_id = video_meta.get("video_id", video_meta.get("video_number", "unknown"))
-
-        video_category = video_meta.get("duration_category", "short")
         duration = video_meta.get("duration_seconds", 0)
-        if video_category not in ["short", "medium", "long"]:
-            if duration <= 300:  # <= 5 minutes
-                video_category = "short"
-            elif duration <= 1800:  # <= 30 minutes
-                video_category = "medium"
-            else:  # > 30 minutes
-                video_category = "long"
-        # Check if already successfully processed
-        skip_task1 = False
-        skip_task2 = False
-        skip_task3 = False
+        video_category = video_meta.get("duration_category", "")
+        if video_category not in ("short", "medium", "long"):
+            video_category = (
+                "short" if duration <= 300 else "medium" if duration <= 1800 else "long"
+            )
 
-        if video_id in existing_task1:
-            entry = existing_task1[video_id]
-
-            # Check for failure indicators in summary
-            has_summary_failure = False
-
-            # Check summary_short for failures (more specific patterns)
-            summary_short = entry.get("summary_short", [])
-            if isinstance(summary_short, list):
-                for item in summary_short:
-                    if isinstance(item, str):
-                        lower_item = item.lower()
-                        # Look for failure patterns in summary_short
-                        fail_short = (
-                            "unavailable" in lower_item
-                            or "summary generation failed" in lower_item
-                            or "could not be generated" in lower_item
-                            or "summary failed" in lower_item
-                            or (
-                                "first segment" in lower_item and "failed" in lower_item
-                            )
-                        )
-                        if fail_short:
-                            has_summary_failure = True
-                            break
-
-            # Check summary_detailed for failures (more specific patterns)
-            summary_detailed = entry.get("summary_detailed", "")
-            if isinstance(summary_detailed, str):
-                lower_detailed = summary_detailed.lower()
-                fail_det = (
-                    "could not be generated" in lower_detailed
-                    or "summary generation failed" in lower_detailed
-                    or "parsing error" in lower_detailed
-                    or ("failed to" in lower_detailed and "summary" in lower_detailed)
-                    or "explicitly reported a failure" in lower_detailed
-                )
-                if fail_det:
-                    has_summary_failure = True
-
-            # Only skip if no failures detected AND confidence > 0
-            if not has_summary_failure and entry.get("confidence", 0) > 0:
-                skip_task1 = True
-                task1_entries.append(entry)
-                logger.info("Skipping Task 1 for %s (already processed)", video_id)
-            elif has_summary_failure:
-                logger.info("Reprocessing Task 1 for %s (previous failure)", video_id)
-            else:
-                logger.info("Reprocessing Task 1 for %s (confidence was 0)", video_id)
-        if video_id in existing_task2:
-            all_good = all(e.get("confidence", 0) > 0 for e in existing_task2[video_id])
-            if all_good and len(existing_task2[video_id]) > 0:
-                skip_task2 = True
-                task2_entries.extend(existing_task2[video_id])
-                logger.info("Skipping Task 2 for %s (already processed)", video_id)
-
-        if video_id in existing_task3:
-            all_good = all(e.get("confidence", 0) > 0 for e in existing_task3[video_id])
-            if all_good and len(existing_task3[video_id]) > 0:
-                skip_task3 = True
-                task3_entries.extend(existing_task3[video_id])
-                logger.info("Skipping Task 3 for %s (already processed)", video_id)
-
-        # If both tasks should be skipped, continue
-        if (
-            task_filter == "summarization"
-            and skip_task1
-            or task_filter == "mcq"
-            and skip_task2
-            or task_filter == "temporal"
-            and skip_task3
-            or task_filter is None
-            and skip_task1
-            and skip_task2
-            and skip_task3
-        ):
+        if skip_task(task_name, existing, video_id):
+            cached = existing[video_id]
+            entries.extend([cached] if not multi_entry else cached)
             continue
 
         try:
-            # Enhance metadata with topic info
             video_meta["topic_id"] = topic_id
             video_meta["topic_name"] = topic_name
-
-            # Get file paths
             file_paths = get_file_paths(video_meta, topic_dir)
 
             if not file_paths["video_path"] and not file_paths["audio_path"]:
                 logger.warning("No video or audio for %s, skipping", video_id)
                 continue
 
-            # Task 1: Summarization
-            if (
-                task_filter is None or task_filter == "summarization"
-            ) and not skip_task1:
-                logger.info(f"Generating summarization for {video_id}")
-                summary_entry = summarizer.process_video(
-                    video_path=file_paths["video_path"],
-                    audio_path=file_paths["audio_path"],
-                    transcript_path=file_paths["transcript_path"],
-                    metadata=video_meta,
-                )
-                task1_entries.append(summary_entry)
+            logger.info("Generating %s for %s", task_name, video_id)
+            new = model.process_video(
+                video_path=file_paths["video_path"],
+                audio_path=file_paths["audio_path"],
+                transcript_path=file_paths["transcript_path"],
+                metadata=video_meta,
+            )
 
-            # Task 2: MCQ
-            do_mcq = (task_filter is None or task_filter == "mcq") and not skip_task2
-            if do_mcq:
-                logger.info(f"Generating MCQs for {video_id}")
-
-                new_mcq_entries = mcq_generator.process_video(
-                    video_path=file_paths["video_path"],
-                    audio_path=file_paths["audio_path"],
-                    transcript_path=file_paths["transcript_path"],
-                    metadata=video_meta,
-                )
-
-                # If we have existing entries, merge intelligently
-                if video_id in existing_task2 and len(existing_task2[video_id]) > 0:
-                    merged_entries, kept, replaced = merge_entries_keep_good(
-                        existing_task2[video_id], new_mcq_entries
+            if multi_entry:
+                new_list = new if isinstance(new, list) else [new]
+                if video_id in existing and existing[video_id]:
+                    merged, kept, replaced = merge_entries_keep_good(
+                        existing[video_id], new_list
                     )
-                    task2_entries.extend(merged_entries)
+                    entries.extend(merged)
                     logger.info(
-                        "Task 2 for %s: kept %s good, replaced %s failed",
+                        "%s for %s: kept %d good, replaced %d failed",
+                        task_name,
                         video_id,
                         kept,
                         replaced,
                     )
                 else:
-                    # No existing entries, use all new ones
-                    task2_entries.extend(new_mcq_entries)
-
-            # Task 3: Temporal Localization
-            do_temporal = (
-                task_filter is None or task_filter == "temporal"
-            ) and not skip_task3
-            if do_temporal:
-                logger.info(f"Generating temporal questions for {video_id}")
-
-                new_temporal_entries = temporal_generator.process_video(
-                    video_path=file_paths["video_path"],
-                    audio_path=file_paths["audio_path"],
-                    transcript_path=file_paths["transcript_path"],
-                    metadata=video_meta,
-                )
-
-                # If we have existing entries, merge intelligently
-                if video_id in existing_task3 and len(existing_task3[video_id]) > 0:
-                    merged_entries, kept, replaced = merge_entries_keep_good(
-                        existing_task3[video_id], new_temporal_entries
-                    )
-                    task3_entries.extend(merged_entries)
-                    logger.info(
-                        "Task 3 for %s: kept %s good, replaced %s failed",
-                        video_id,
-                        kept,
-                        replaced,
-                    )
-                else:
-                    # No existing entries, use all new ones
-                    task3_entries.extend(new_temporal_entries)
-
-            # Rate limiting: Add delay after processing each video
-            if not (skip_task1 and skip_task2 and skip_task3):
-                delay_between_videos = int(
-                    getattr(config.rate_limit, "delay_between_videos", 15)
-                )
-
-                # Extra delay for long videos
-                if video_category == "long":
-                    extra_delay = int(
-                        getattr(
-                            config.rate_limit,
-                            "delay_after_long_video",
-                            60,
-                        )
-                    )
-                    total_delay = delay_between_videos + extra_delay
-                    logger.info(
-                        "Long video (%s) - waiting %ss before next",
-                        video_category,
-                        total_delay,
-                    )
-                    time.sleep(total_delay)
-                else:
-                    logger.info(
-                        "Waiting %ss before next video (rate limit)",
-                        delay_between_videos,
-                    )
-                    time.sleep(delay_between_videos)
+                    entries.extend(new_list)
             else:
-                logger.info("Skipped all tasks for %s - no delay", video_id)
+                entries.append(new)
+
+            _apply_rate_limit(video_category, config)
 
         except Exception as e:
-            logger.error("Failed to process video %s: %s", video_id, e, exc_info=True)
-            continue
+            logger.error("Failed to process %s: %s", video_id, e, exc_info=True)
 
     logger.info(
-        "Completed Topic %s: %d summaries, %d MCQs",
-        topic_id,
-        len(task1_entries),
-        len(task2_entries),
+        "Completed %s for Topic %s: %d entries", task_name, topic_id, len(entries)
     )
-    return (task1_entries, task2_entries, task3_entries)
+    return entries
+
+
+def get_topic_output_path(
+    output_dir: Path, task_name: str, topic_id: int, topic_name: str
+) -> Path:
+    """
+    Build the output JSON path for a given task and topic.
+
+    Args:
+        output_dir: Root output directory (e.g., vqa/)
+        task_name: e.g. "task1_summarization"
+        topic_id: Topic ID
+        topic_name: Topic name (spaces allowed; converted to underscores)
+
+    Returns
+    -------
+        Full Path to the output JSON file.
+    """
+    filename = f"{topic_id:02d}_{topic_name.replace(' ', '_')}.json"
+    return output_dir / task_name / filename
+
+
+def init_task(
+    task_filter_key: str,
+    model_class,
+    task_name: str,
+    config: "Config",
+    output_dir: Path,
+    topic_id: int,
+    topic_name: str,
+    task_filter: str,
+    list_per_video: bool = False,
+    dry_run: bool = False,
+) -> tuple:
+    """
+    Initialize a task model and load any pre-existing output entries.
+
+    Args:
+        task_filter_key: Filter string for this task, e.g. "summarization".
+        model_class: Model class to instantiate, e.g. SummarizationModel.
+        task_name: Output subdirectory name, e.g. "task1_summarization".
+        config: Configuration object.
+        output_dir: Root output directory.
+        topic_id: Topic ID.
+        topic_name: Topic name.
+        task_filter: Active CLI filter (None = run all tasks).
+        list_per_video: If True, existing entries are indexed as
+            dict[video_id -> list]; if False, dict[video_id -> entry].
+
+    Returns
+    -------
+        Tuple of (model_instance_or_None, existing_entries_dict).
+        model is None when this task is excluded by task_filter.
+    """
+    if task_filter is not None and task_filter != task_filter_key:
+        return None, {}
+
+    model = model_class(config, dry_run=dry_run)
+    existing = {}
+
+    output_file = get_topic_output_path(output_dir, task_name, topic_id, topic_name)
+    if output_file.exists():
+        with open(output_file, "r") as f:
+            data = json.load(f)
+        for entry in data.get("entries", []):
+            vid = entry["video_id"]
+            if list_per_video:
+                existing.setdefault(vid, []).append(entry)
+            else:
+                existing[vid] = entry
+        n = sum(len(v) for v in existing.values()) if list_per_video else len(existing)
+        logger.info("Loaded %d existing %s entries", n, task_name)
+
+    return model, existing
 
 
 def save_task_results(
@@ -464,7 +367,7 @@ def save_task_results(
     Save VQA entries to JSON file.
 
     Args:
-        task_name: "task1_summarization" or "task2_mcq"
+        task_name: e.g. "task1_summarization" or "task2_mcq"
         topic_id: Topic ID
         topic_name: Topic name
         entries: List of VQA entry dicts
@@ -474,23 +377,18 @@ def save_task_results(
         logger.warning("No entries to save for %s - %s", task_name, topic_name)
         return
 
-    # Create output directory
-    task_dir = output_dir / task_name
-    task_dir.mkdir(parents=True, exist_ok=True)
+    output_file = get_topic_output_path(output_dir, task_name, topic_id, topic_name)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # Build output JSON
     output_data = {
         "topic_id": topic_id,
         "topic_name": topic_name,
-        "task": task_name.replace("task1_", "").replace("task2_", ""),
+        "task": task_name.split("_", 1)[1] if "_" in task_name else task_name,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "num_entries": len(entries),
         "entries": entries,
     }
 
-    # Save to file
-    out_name = f"{topic_id:02d}_{topic_name.replace(' ', '_')}.json"
-    output_file = task_dir / out_name
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(output_data, f, indent=2, ensure_ascii=False)
 
@@ -586,12 +484,7 @@ def merge_entries_keep_good(
 def main():
     """Run main entry point."""
     parser = argparse.ArgumentParser(description="VQA Generation System")
-    parser.add_argument(
-        "--config",
-        type=str,
-        default="vqa_config.yaml",
-        help="Path to configuration file",
-    )
+    parser.add_argument("--config", type=str, default="vqa_config.yaml")
     parser.add_argument(
         "--topics",
         type=str,
@@ -602,42 +495,40 @@ def main():
     parser.add_argument(
         "--task",
         type=str,
-        choices=["summarization", "mcq", "temporal"],
         default=None,
-        help="Process only specific task (default: both)",
+        choices=["summarization", "mcq", "temporal"],
+        help="Process only a specific task (default: all)",
     )
     parser.add_argument(
-        "--output",
-        type=str,
-        default=None,
-        help="Output directory (overrides config)",
+        "--output", type=str, default=None, help="Output directory (overrides config)"
     )
-
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Run without API calls; generates stub outputs",
+    )
     args = parser.parse_args()
 
-    # Load config
-    logger.info(f"Loading configuration from {args.config}")
-    config = load_config(args.config)
+    config = load_config(args.config, base_dir=Path(__file__).parent)
 
-    # Set output directory
+    if args.dry_run:
+        logger.info("=" * 60)
+        logger.info("[DRY-RUN] No API calls will be made; outputs are stubs")
+        logger.info("=" * 60)
+
     output_dir = Path(args.output) if args.output else Path(config.paths.output_dir)
-
     output_dir.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Output directory: {output_dir}")
 
-    # Get dataset root
     dataset_root = Path(config.paths.dataset_root)
     if not dataset_root.exists():
-        logger.error(f"Dataset root not found: {dataset_root}")
+        logger.error("Dataset root not found: %s", dataset_root)
         return
 
-    # Get all topics
     all_topics = get_all_topic_dirs(dataset_root)
-    logger.info(f"Found {len(all_topics)} topics in dataset")
+    logger.info("Found %d topics in dataset", len(all_topics))
 
-    # Filter topics if specified
     if args.topics:
-        topic_ids = [int(tid.strip()) for tid in args.topics.split(",")]
+        topic_ids = {int(t.strip()) for t in args.topics.split(",")}
         topics_to_process = [t for t in all_topics if t[0] in topic_ids]
     elif args.all:
         topics_to_process = all_topics
@@ -645,71 +536,59 @@ def main():
         logger.error("Must specify either --topics or --all")
         return
 
-    logger.info(f"Processing {len(topics_to_process)} topics")
+    logger.info("Processing %d topics", len(topics_to_process))
 
-    # Process each topic
-    total_task1 = 0
-    total_task2 = 0
-    total_task3 = 0
+    totals = {task_name: 0 for _, _, task_name, _ in TASKS}
+
     for topic_id, topic_name, topic_dir in topics_to_process:
-        try:
-            task1_entries, task2_entries, task3_entries = process_topic(
-                topic_id,
-                topic_name,
-                topic_dir,
-                config,
-                output_dir,
-                task_filter=args.task,
-            )
-
-            # Save results
-            if args.task is None or args.task == "summarization":
-                save_task_results(
-                    "task1_summarization",
+        for task_key, model_class, task_name, multi_entry in TASKS:
+            if args.task and args.task != task_key:
+                continue
+            try:
+                model, existing = init_task(
+                    task_key,
+                    model_class,
+                    task_name,
+                    config,
+                    output_dir,
                     topic_id,
                     topic_name,
-                    task1_entries,
-                    output_dir,
+                    task_filter=None,
+                    list_per_video=multi_entry,
+                    dry_run=args.dry_run,
                 )
-                total_task1 += len(task1_entries)
-
-            if args.task is None or args.task == "mcq":
-                save_task_results(
-                    "task2_mcq",
+                entries = process_topic(
                     topic_id,
                     topic_name,
-                    task2_entries,
-                    output_dir,
+                    topic_dir,
+                    task_name,
+                    model,
+                    existing,
+                    config,
+                    multi_entry,
                 )
-                total_task2 += len(task2_entries)
-
-            if args.task is None or args.task == "temporal":
-                save_task_results(
-                    "task3_temporal_localization",
-                    topic_id,
-                    topic_name,
-                    task3_entries,
-                    output_dir,
+                if not args.dry_run:
+                    save_task_results(
+                        task_name, topic_id, topic_name, entries, output_dir
+                    )
+                else:
+                    logger.info(
+                        "[DRY-RUN] Would save %d entries for %s",
+                        len(entries),
+                        task_name,
+                    )
+                totals[task_name] += len(entries)
+            except Exception as e:
+                logger.error(
+                    "Failed %s for topic %s: %s", task_name, topic_id, e, exc_info=True
                 )
-                total_task3 += len(task3_entries)
 
-        except Exception as e:
-            logger.error(
-                "Failed to process topic %s: %s",
-                topic_id,
-                e,
-                exc_info=True,
-            )
-            continue
-
-    # Final statistics
     logger.info("=" * 60)
     logger.info("VQA Generation Complete!")
-    logger.info(f"Topics processed: {len(topics_to_process)}")
-    logger.info(f"Task 1 (Summarization): {total_task1} entries")
-    logger.info(f"Task 2 (MCQ): {total_task2} entries")
-    logger.info(f"Task 3 (Temporal): {total_task3} entries")
-    logger.info(f"Output directory: {output_dir}")
+    logger.info("Topics processed: %d", len(topics_to_process))
+    for _, _, task_name, _ in TASKS:
+        logger.info("  %s: %d entries", task_name, totals[task_name])
+    logger.info("Output: %s", output_dir)
     logger.info("=" * 60)
 
 

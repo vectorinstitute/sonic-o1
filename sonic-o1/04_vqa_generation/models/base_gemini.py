@@ -9,7 +9,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from google import genai
 from google.genai import types
@@ -21,14 +21,18 @@ logger = logging.getLogger(__name__)
 class BaseGeminiClient:
     """Base class for Gemini API interactions."""
 
-    def __init__(self, config):
+    _DRY_RUN_RESPONSE = '{"summary_short":[],"summary_detailed":"[DRY-RUN]","timeline":[],"glossary":[],"confidence":0.1,"question":"[DRY-RUN]","options":["(A) Dry run","(B) Dry run","(C) Dry run","(D) Not enough evidence"],"answer_index":3,"answer_letter":"D","rationale":"dry-run","evidence_tags":[],"requires_audio":false,"demographics":[],"total_individuals":0,"explanation":"dry-run"}'
+
+    def __init__(self, config, dry_run: bool = False):
         """
         Initialize Gemini client with configuration.
 
         Args:
             config: Configuration object with API settings
+            dry_run: If True, skip API client setup and return stub responses.
         """
         self.config = config
+        self.dry_run = dry_run
         self.model_name = config.gemini.model_name
         self.retry_attempts = int(config.gemini.retry_attempts)
         self.retry_delay = int(config.gemini.retry_delay)
@@ -37,7 +41,6 @@ class BaseGeminiClient:
             int(config.file_processing.inline_threshold_mb) * 1024 * 1024
         )
 
-        # Rate limiting settings (with type conversion)
         self.rate_limit_delay = int(
             getattr(config.rate_limit, "delay_after_api_call", 2)
         )
@@ -48,7 +51,11 @@ class BaseGeminiClient:
             getattr(config.rate_limit, "rate_limit_backoff_multiplier", 2)
         )
 
-        self.setup_client()
+        if dry_run:
+            self.client = None
+            logger.info("[DRY-RUN] Skipping Gemini client setup")
+        else:
+            self.setup_client()
 
     def setup_client(self):
         """Initialize the Gemini client."""
@@ -79,7 +86,12 @@ class BaseGeminiClient:
         -------
             Generated text response.
         """
-        # Calculate total size to determine processing method
+        if self.dry_run:
+            logger.info(
+                "[DRY-RUN] Would call Gemini with %d media files", len(media_files)
+            )
+            return self._DRY_RUN_RESPONSE
+
         total_size = sum(os.path.getsize(path) for _, path in media_files)
 
         if total_size > self.inline_threshold:
@@ -93,46 +105,60 @@ class BaseGeminiClient:
         )
         return self._process_inline(media_files, prompt, video_fps)
 
+    def _wait_for_files(
+        self, uploaded_files: List[Tuple[str, object]]
+    ) -> List[Tuple[str, object]]:
+        """Poll *uploaded_files* until all reach ACTIVE state.
+
+        Args:
+            uploaded_files: List of (media_type, uploaded_file) pairs.
+
+        Returns
+        -------
+            Updated list with the latest file objects from the File API.
+
+        Raises
+        ------
+            Exception: If any file transitions to FAILED, or the timeout is exceeded.
+        """
+        max_wait = self.file_processing_timeout
+        wait_time = 0
+
+        while wait_time < max_wait:
+            all_processed = True
+            for i, (media_type, uploaded_file) in enumerate(uploaded_files):
+                updated_file = self.client.files.get(name=uploaded_file.name)
+                uploaded_files[i] = (media_type, updated_file)
+                if updated_file.state == "PROCESSING":
+                    all_processed = False
+                elif updated_file.state == "FAILED":
+                    error_msg = getattr(updated_file, "error", "Unknown error")
+                    raise Exception(f"File processing failed: {error_msg}")
+
+            if all_processed:
+                return uploaded_files
+
+            time.sleep(10)
+            wait_time += 10
+            if wait_time % 60 == 0:
+                logger.info(
+                    "Still waiting for file processing (%ds elapsed)", wait_time
+                )
+
+        raise Exception(f"File processing timeout after {max_wait}s")
+
     def _process_with_file_api(
         self, media_files: List[Tuple[str, Path]], prompt: str, video_fps: float = 1.0
     ) -> str:
         """Process large files using Gemini File API."""
         uploaded_files = []
         try:
-            # Upload all media files
             for media_type, media_path in media_files:
                 uploaded_file = self.client.files.upload(file=str(media_path))
                 logger.info(f"Uploaded {media_type}: {uploaded_file.name}")
-                uploaded_files.append(
-                    (media_type, uploaded_file)
-                )  # Store type with file
+                uploaded_files.append((media_type, uploaded_file))
 
-            # Wait for all files to process
-            max_wait = self.file_processing_timeout
-            wait_time = 0
-            all_processed = False
-
-            while not all_processed and wait_time < max_wait:
-                all_processed = True
-                for i, (media_type, uploaded_file) in enumerate(uploaded_files):
-                    updated_file = self.client.files.get(name=uploaded_file.name)
-                    uploaded_files[i] = (media_type, updated_file)
-                    if updated_file.state == "PROCESSING":
-                        all_processed = False
-                    elif updated_file.state == "FAILED":
-                        error_msg = getattr(updated_file, "error", "Unknown error")
-                        raise Exception(f"File processing failed: {error_msg}")
-
-                if not all_processed:
-                    time.sleep(10)
-                    wait_time += 10
-                    if wait_time % 60 == 0:
-                        logger.info(
-                            f"Still waiting for file processing ({wait_time}s elapsed)"
-                        )
-
-            if not all_processed:
-                raise Exception(f"File processing timeout after {max_wait}s")
+            uploaded_files = self._wait_for_files(uploaded_files)
 
             # Generate content with uploaded files + prompt
             for attempt in range(self.retry_attempts):
@@ -185,7 +211,7 @@ class BaseGeminiClient:
 
     def _process_inline(
         self, media_files: List[Tuple[str, Path]], prompt: str, video_fps: float = 1.0
-    ) -> str:
+    ) -> Optional[str]:
         """Process small files using inline data."""
         parts = []
 
