@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: transparent;
+    padding: 16px;
+    color: #1e293b;
+  }
+  .chart-area {
+    max-width: 750px;
+    margin: 0 auto;
+  }
+  .model-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 10px;
+  }
+  .model-name {
+    font-size: 11.5px;
+    font-weight: 600;
+    min-width: 120px;
+    text-align: right;
+    color: #475569;
+  }
+  .stacked-bar {
+    flex: 1;
+    height: 28px;
+    display: flex;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+  }
+  .segment {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #fff;
+    transition: opacity 0.15s;
+    position: relative;
+    min-width: 2px;
+  }
+  .seg-other .pct, .seg-wrong .pct { color: #1a1a1a; }
+  .segment:hover { opacity: 0.85; }
+  .segment .pct { pointer-events: none; }
+  .seg-relabs   { background: #E10098; }
+  .seg-halluc   { background: #1a1a1a; }
+  .seg-early    { background: #b3007a; }
+  .seg-late     { background: #6b6b6b; }
+  .seg-wrong    { background: #d4d4d4; }
+  .seg-other    { background: #ebebeb; }
+  .legend-row {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .legend-row .item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: #475569;
+  }
+  .legend-row .swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+  .tooltip {
+    position: fixed;
+    background: #1e293b;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    pointer-events: none;
+    z-index: 100;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    max-width: 220px;
+    line-height: 1.5;
+  }
+  .tooltip strong { color: #f9a8d4; }
+  .insight-box {
+    margin-top: 16px;
+    padding: 10px 14px;
+    background: #fef9c3;
+    border-left: 3px solid #f59e0b;
+    border-radius: 0 6px 6px 0;
+    font-size: 12px;
+    color: #854d0e;
+    line-height: 1.55;
+  }
+</style>
+</head>
+<body>
+
+<div class="legend-row">
+  <span class="item"><span class="swatch seg-relabs"></span> Rel→Abs Mismatch</span>
+  <span class="item"><span class="swatch seg-halluc"></span> Hallucination</span>
+  <span class="item"><span class="swatch seg-early"></span> Too Early</span>
+  <span class="item"><span class="swatch seg-late"></span> Too Late</span>
+  <span class="item"><span class="swatch seg-wrong"></span> Wrong Event</span>
+  <span class="item"><span class="swatch seg-other"></span> Other</span>
+</div>
+
+<div class="chart-area" id="chart"></div>
+<div class="tooltip" id="tooltip"></div>
+
+<div class="insight-box" style="border-left-color: #E10098; background: #fdf2f8; color: #1a1a1a;">
+  <strong>Key pattern:</strong> UniMoE-2.0's dominant failure is relative-to-absolute mismatch (39.4%) — it treats each segment as starting at 0s.
+  Qwen3-Omni and VITA-1.5 are dominated by timing shifts. Gemini's errors are spread across "Other" (81.5%), with no single dominant failure mode.
+</div>
+
+<script>
+const errorData = [
+  { model: 'Gemini 3.0 Pro', relabs: 0.2, halluc: 0.4, early: 5.6, late: 9.2, wrong: 3.1, other: 81.5 },
+  { model: 'Qwen3-Omni',     relabs: 0.5, halluc: 7.0, early: 30.5, late: 36.9, wrong: 1.3, other: 23.8 },
+  { model: 'UniMoE-2.0',     relabs: 39.4, halluc: 27.1, early: 13.0, late: 9.6, wrong: 0.7, other: 10.1 },
+  { model: 'MiniCPM-o-2.6',  relabs: 7.3, halluc: 26.8, early: 14.8, late: 37.5, wrong: 0.6, other: 12.9 },
+  { model: 'VITA 1.5',       relabs: 0.8, halluc: 7.7, early: 38.0, late: 36.6, wrong: 0.5, other: 16.4 },
+  { model: 'VideoLLaMA2',    relabs: 10.4, halluc: 10.0, early: 17.6, late: 11.6, wrong: 0.3, other: 50.2 },
+];
+
+const categories = [
+  { key: 'relabs', cls: 'seg-relabs', label: 'Rel→Abs Mismatch' },
+  { key: 'halluc', cls: 'seg-halluc', label: 'Hallucination' },
+  { key: 'early',  cls: 'seg-early',  label: 'Too Early' },
+  { key: 'late',   cls: 'seg-late',   label: 'Too Late' },
+  { key: 'wrong',  cls: 'seg-wrong',  label: 'Wrong Event, Right Time' },
+  { key: 'other',  cls: 'seg-other',  label: 'Other' },
+];
+
+const chart = document.getElementById('chart');
+const tooltip = document.getElementById('tooltip');
+
+errorData.forEach(row => {
+  const modelRow = document.createElement('div');
+  modelRow.className = 'model-row';
+
+  const nameEl = document.createElement('div');
+  nameEl.className = 'model-name';
+  nameEl.textContent = row.model;
+  modelRow.appendChild(nameEl);
+
+  const bar = document.createElement('div');
+  bar.className = 'stacked-bar';
+
+  categories.forEach(cat => {
+    const val = row[cat.key];
+    if (val < 0.5) return; // skip tiny segments
+    const seg = document.createElement('div');
+    seg.className = 'segment ' + cat.cls;
+    seg.style.width = val + '%';
+    if (val > 6) seg.innerHTML = '<span class="pct">' + val.toFixed(1) + '%</span>';
+
+    seg.addEventListener('mouseenter', (e) => {
+      tooltip.style.display = 'block';
+      tooltip.innerHTML = '<strong>' + cat.label + '</strong><br>' + row.model + ': ' + val.toFixed(1) + '%';
+    });
+    seg.addEventListener('mousemove', (e) => {
+      tooltip.style.left = (e.clientX + 12) + 'px';
+      tooltip.style.top = (e.clientY - 10) + 'px';
+    });
+    seg.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+
+    bar.appendChild(seg);
+  });
+
+  modelRow.appendChild(bar);
+  chart.appendChild(modelRow);
+});
+</script>
+</body>
+</html>

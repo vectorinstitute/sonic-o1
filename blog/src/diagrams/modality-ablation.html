@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: transparent;
+    padding: 16px;
+    color: #1e293b;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  .card {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    background: #fafbfc;
+  }
+  .card h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 8px;
+  }
+  .bar-label {
+    font-size: 10.5px;
+    font-weight: 500;
+    color: #475569;
+    min-width: 90px;
+    text-align: right;
+  }
+  .bar-track {
+    flex: 1;
+    height: 22px;
+    background: #f1f5f9;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    transition: width 0.5s ease;
+    min-width: 30px;
+  }
+  .bar-fill.video { background: #1a1a1a; }
+  .bar-fill.audio { background: #E10098; }
+  .bar-fill.text  { background: #b3007a; }
+  .delta {
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 50px;
+    text-align: left;
+  }
+  .delta.positive { color: #16a34a; }
+  .delta.negative { color: #dc2626; }
+  .delta.neutral  { color: #64748b; }
+  .legend-row {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-bottom: 16px;
+    font-size: 11px;
+    color: #475569;
+  }
+  .legend-row span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .legend-row .swatch {
+    width: 14px;
+    height: 10px;
+    border-radius: 2px;
+  }
+  .note {
+    font-size: 10.5px;
+    color: #94a3b8;
+    margin-top: 14px;
+    line-height: 1.5;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="legend-row">
+  <span><span class="swatch" style="background:#1a1a1a"></span> Video Only</span>
+  <span><span class="swatch" style="background:#E10098"></span> Video + Audio</span>
+  <span><span class="swatch" style="background:#b3007a"></span> Video + Text (GPT-4o)</span>
+</div>
+
+<div class="grid">
+  <!-- Summarization -->
+  <div class="card">
+    <h4>Summarization (Score 0–10)</h4>
+    <div id="summ-bars"></div>
+  </div>
+  <!-- MCQ -->
+  <div class="card">
+    <h4>MCQ Accuracy (%)</h4>
+    <div id="mcq-bars"></div>
+  </div>
+</div>
+
+<p class="note">
+  Ablation on representative topics. GPT-4o uses text transcripts (not native audio).<br>
+  Δ shows the change from adding audio/text to video-only input.
+</p>
+
+<script>
+const ablation = [
+  {
+    model: 'Qwen3-Omni',
+    summ: { video: 4.60, audio: 6.82 },
+    mcq:  { video: 86.1, audio: 96.8 },
+  },
+  {
+    model: 'UniMoE-2.0',
+    summ: { video: 3.96, audio: 5.86 },
+    mcq:  { video: 83.9, audio: 92.7 },
+  },
+  {
+    model: 'VideoLLaMA2',
+    summ: { video: 2.02, audio: 1.88 },
+    mcq:  { video: 54.6, audio: 57.1 },
+  },
+  {
+    model: 'GPT-4o',
+    summ: { video: 5.02, text: 5.82 },
+    mcq:  { video: 91.2, text: 97.5 },
+  },
+];
+
+function renderBars(containerId, task, maxVal) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+
+  ablation.forEach(row => {
+    const videoVal = row[task].video;
+    const augVal = row[task].audio || row[task].text;
+    const isText = !!row[task].text;
+    const delta = augVal - videoVal;
+    const deltaStr = (delta >= 0 ? '+' : '') + delta.toFixed(1);
+    const deltaClass = delta > 0.1 ? 'positive' : delta < -0.1 ? 'negative' : 'neutral';
+
+    // Video-only bar
+    const row1 = document.createElement('div');
+    row1.className = 'bar-row';
+    row1.innerHTML =
+      '<span class="bar-label">' + row.model + '</span>' +
+      '<div class="bar-track"><div class="bar-fill video" style="width:' + (videoVal / maxVal * 100) + '%">' + videoVal.toFixed(1) + '</div></div>' +
+      '<span class="delta neutral" style="visibility:hidden">-</span>';
+    container.appendChild(row1);
+
+    // Audio/text bar
+    const row2 = document.createElement('div');
+    row2.className = 'bar-row';
+    row2.innerHTML =
+      '<span class="bar-label" style="font-size:9.5px;color:#94a3b8">+ ' + (isText ? 'text' : 'audio') + '</span>' +
+      '<div class="bar-track"><div class="bar-fill ' + (isText ? 'text' : 'audio') + '" style="width:' + (augVal / maxVal * 100) + '%">' + augVal.toFixed(1) + '</div></div>' +
+      '<span class="delta ' + deltaClass + '">' + deltaStr + (task === 'mcq' ? '%' : '') + '</span>';
+    container.appendChild(row2);
+
+    // Spacer
+    const spacer = document.createElement('div');
+    spacer.style.height = '6px';
+    container.appendChild(spacer);
+  });
+}
+
+renderBars('summ-bars', 'summ', 10);
+renderBars('mcq-bars', 'mcq', 100);
+</script>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: transparent;
+    padding: 20px;
+    color: #1e293b;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+  h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 12px;
+  }
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 14px;
+    font-size: 11.5px;
+    color: #64748b;
+    flex-wrap: wrap;
+  }
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .legend .dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  thead th {
+    background: #1a1a1a;
+    color: #fff;
+    padding: 8px 6px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 11px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  thead th:first-child {
+    text-align: left;
+    min-width: 130px;
+    border-radius: 6px 0 0 0;
+  }
+  thead th:last-child { border-radius: 0 6px 0 0; }
+  tbody td {
+    padding: 7px 6px;
+    text-align: center;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+  }
+  tbody td:first-child {
+    text-align: left;
+    font-weight: 500;
+    font-size: 11.5px;
+  }
+  tbody tr:hover { background: #f1f5f9; }
+  tbody tr.highlight {
+    background: #fdf2f8;
+    font-weight: 600;
+  }
+  tbody tr.highlight:hover { background: #fce7f3; }
+  .yes {
+    background: #dcfce7;
+    color: #166534;
+    font-weight: 700;
+    border-radius: 3px;
+    padding: 3px 6px;
+  }
+  .no {
+    color: #dc2626;
+    font-weight: 500;
+  }
+  .partial {
+    background: #fef9c3;
+    color: #854d0e;
+    font-weight: 600;
+    border-radius: 3px;
+    padding: 3px 6px;
+  }
+  .separator-row td {
+    background: #f1f5f9;
+    font-weight: 700;
+    font-size: 11px;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 6px;
+    text-align: left;
+  }
+  .note {
+    font-size: 10.5px;
+    color: #94a3b8;
+    margin-top: 10px;
+    line-height: 1.5;
+  }
+  .filter-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    padding: 5px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    background: #f8fafc;
+    cursor: pointer;
+    font-size: 11px;
+    color: #64748b;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { background: #e2e8f0; }
+  .filter-btn.active {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #1a1a1a;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h3>How SONIC-O1 Compares to Existing Benchmarks</h3>
+  <div class="legend">
+    <span><span class="dot" style="background:#dcfce7;border:1px solid #bbf7d0;"></span> Supported</span>
+    <span><span class="dot" style="background:#fee2e2;border:1px solid #fecaca;"></span> Not supported</span>
+    <span><span class="dot" style="background:#fef9c3;border:1px solid #fde68a;"></span> Partial</span>
+  </div>
+  <div class="filter-row">
+    <span class="filter-btn active" onclick="filterRows('all')">All Benchmarks</span>
+    <span class="filter-btn" onclick="filterRows('avqa')">Audio-Video</span>
+    <span class="filter-btn" onclick="filterRows('video')">Video Only</span>
+  </div>
+  <table id="comparison-table">
+    <thead>
+      <tr>
+        <th>Benchmark</th>
+        <th>Size</th>
+        <th>Lengths</th>
+        <th>Summ.</th>
+        <th>Temp.</th>
+        <th>Reas.</th>
+        <th>AVQA</th>
+        <th>Social Cues</th>
+        <th>Human Ann.</th>
+        <th>Open Src</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <p class="note">
+    Summ. = Summarization task. Temp. = Full temporal localization. Reas. = Reasoning/rationale required.
+    AVQA = Audio-Video QA (native audio input). Social Cues = Demographic metadata for fairness.
+    δ = Partial temporal support.
+  </p>
+</div>
+
+<script>
+const benchmarks = [
+  { group: 'video', name: 'Video-MME', size: '2,700', lengths: '<2; 4–15; 30–60', summ: false, temp: 'partial', reas: false, avqa: false, social: false, human: true, open: false },
+  { group: 'video', name: 'LongVideoBench', size: '6,678', lengths: '~8', summ: false, temp: 'partial', reas: true, avqa: false, social: false, human: true, open: false },
+  { group: 'video', name: 'LVBench', size: '1,549', lengths: '~68', summ: false, temp: 'partial', reas: true, avqa: false, social: false, human: true, open: false },
+  { group: 'video', name: 'CinePile', size: '305K', lengths: '~3', summ: false, temp: 'partial', reas: false, avqa: false, social: false, human: true, open: false },
+  { group: 'video', name: 'Sports-QA', size: '94,000', lengths: '<1', summ: false, temp: 'partial', reas: true, avqa: false, social: false, human: true, open: false },
+  { group: 'video', name: 'InfiniBench', size: '87,700', lengths: '~53', summ: true, temp: 'partial', reas: true, avqa: false, social: false, human: true, open: true },
+  { group: 'avqa', name: 'VAST', size: '27M', lengths: '<1', summ: false, temp: false, reas: false, avqa: true, social: false, human: false, open: false },
+  { group: 'avqa', name: 'Daily-Omni', size: '1,197', lengths: '<1', summ: false, temp: true, reas: true, avqa: true, social: false, human: false, open: false },
+  { group: 'avqa', name: 'MAVERIX', size: '2,556', lengths: '~6', summ: false, temp: 'partial', reas: true, avqa: true, social: false, human: true, open: false },
+  { group: 'avqa', name: 'CG-Bench', size: '12,129', lengths: '10–60', summ: false, temp: true, reas: true, avqa: true, social: false, human: true, open: true },
+  { group: 'avqa', name: 'OmniVideoBench', size: '1,000', lengths: '1–30', summ: true, temp: 'partial', reas: true, avqa: true, social: false, human: true, open: false },
+  { group: 'avqa', name: 'AURA', size: '1,600', lengths: '<1', summ: false, temp: 'partial', reas: true, avqa: true, social: false, human: false, open: true },
+  { group: 'avqa', name: 'SONIC-O1', size: '4,958', lengths: '<5; 5–20; 20–60', summ: true, temp: true, reas: true, avqa: true, social: true, human: true, open: true, highlight: true },
+];
+
+function badge(val) {
+  if (val === true) return '<span class="yes">✓</span>';
+  if (val === false) return '<span class="no">✗</span>';
+  if (val === 'partial') return '<span class="partial">δ</span>';
+  return val;
+}
+
+function renderTable(filter) {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  const filtered = filter === 'all' ? benchmarks : benchmarks.filter(b => b.group === filter || b.name === 'SONIC-O1');
+
+  // Group separators
+  let lastGroup = '';
+  filtered.forEach(b => {
+    if (filter === 'all' && b.group !== lastGroup) {
+      const sepRow = document.createElement('tr');
+      sepRow.className = 'separator-row';
+      const label = b.group === 'video' ? 'Video Benchmarks (No Native Audio)' : 'Audio-VideoBenchmarks (Native Audio)';
+      sepRow.innerHTML = '<td colspan="10">' + label + '</td>';
+      tbody.appendChild(sepRow);
+      lastGroup = b.group;
+    }
+    const tr = document.createElement('tr');
+    if (b.highlight) tr.className = 'highlight';
+    tr.innerHTML =
+      '<td>' + b.name + '</td>' +
+      '<td>' + b.size + '</td>' +
+      '<td>' + b.lengths + '</td>' +
+      '<td>' + badge(b.summ) + '</td>' +
+      '<td>' + badge(b.temp) + '</td>' +
+      '<td>' + badge(b.reas) + '</td>' +
+      '<td>' + badge(b.avqa) + '</td>' +
+      '<td>' + badge(b.social) + '</td>' +
+      '<td>' + badge(b.human) + '</td>' +
+      '<td>' + badge(b.open) + '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function filterRows(filter) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderTable(filter);
+}
+
+renderTable('all');
+</script>
+</body>
+</html>

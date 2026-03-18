@@ -1,0 +1,77 @@
+/* ═══════════════════════════════════════════════════════════════
+   SONIC-O1 Blog — Distill.pub Custom Styles
+   Vector Institute Brand: Magenta / Black / White
+   ═══════════════════════════════════════════════════════════════ */
+   :root {
+    --vi-magenta: #E10098;
+    --vi-magenta-light: #f74dbe;
+    --vi-magenta-dark: #b3007a;
+    --vi-black: #1a1a1a;
+    --vi-dark: #2d2d2d;
+    --vi-gray-700: #3d3d3d;
+    --vi-gray-500: #6b6b6b;
+    --vi-gray-400: #8a8a8a;
+    --vi-gray-300: #b0b0b0;
+    --vi-gray-200: #d4d4d4;
+    --vi-gray-100: #ebebeb;
+    --vi-gray-50: #f5f5f5;
+    --vi-white: #ffffff;
+    --vi-highlight: #fdf2f8;
+    --vi-success: #10b981;
+    --vi-warning: #f59e0b;
+  }
+  d-article { font-size: 16.5px; line-height: 1.75; color: var(--vi-black); }
+  d-article h2 { font-size: 1.65rem; font-weight: 700; margin-top: 3rem; margin-bottom: 0.75rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--vi-magenta); color: var(--vi-black); }
+  d-article h3 { font-size: 1.25rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.5rem; color: var(--vi-black); }
+  d-article h4 { font-size: 1.05rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.4rem; color: var(--vi-dark); }
+  d-contents { margin-bottom: 2rem; }
+  d-contents nav h4 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--vi-gray-500); margin-bottom: 0.5rem; }
+  d-contents a { color: var(--vi-gray-700); text-decoration: none; font-size: 0.92rem; transition: color 0.15s; }
+  d-contents a:hover { color: var(--vi-magenta); text-decoration: underline; }
+  .toc-section { margin-bottom: 0.4rem; }
+  .toc-line { display: none; }
+  d-article a { color: var(--vi-magenta); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s; }
+  d-article a:hover { border-bottom-color: var(--vi-magenta-light); }
+  d-article ul, d-article ol { margin: 0.75rem 0; padding-left: 1.5rem; }
+  d-article li { margin-bottom: 0.45rem; line-height: 1.65; }
+  d-article li strong { color: var(--vi-black); }
+  d-article figure { margin: 2rem 0; }
+  d-article figure img { border: 1px solid var(--vi-gray-200); border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: box-shadow 0.2s; }
+  d-article figure img:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+  d-article figcaption { font-size: 0.85rem; color: var(--vi-gray-500); margin-top: 0.5rem; text-align: center; line-height: 1.5; }
+  d-article iframe { border: none; background: transparent; }
+  d-article strong { font-weight: 650; }
+  d-article blockquote { border-left: 3px solid var(--vi-magenta); padding: 0.75rem 1.25rem; margin: 1.25rem 0; background: var(--vi-highlight); border-radius: 0 6px 6px 0; font-size: 0.95rem; color: var(--vi-black); }
+  .citation { margin-top: 2.5rem; padding: 1.25rem; background: var(--vi-gray-50); border: 1px solid var(--vi-gray-200); border-radius: 6px; }
+  .citation h3 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--vi-gray-500); margin-top: 0; margin-bottom: 0.75rem; border: none; padding: 0; }
+  .citation pre { font-size: 0.82rem; line-height: 1.55; background: var(--vi-white); border: 1px solid var(--vi-gray-200); border-radius: 4px; padding: 1rem; overflow-x: auto; margin: 0; color: var(--vi-black); }
+  .center-text { text-align: center; }
+  d-math { font-size: 0.95em; }
+  d-appendix { border-top: 2px solid var(--vi-gray-200); margin-top: 3rem; padding-top: 1.5rem; }
+  d-appendix h3 { font-size: 1.15rem; font-weight: 600; color: var(--vi-black); margin-top: 2rem; }
+  d-appendix h4 { font-size: 1rem; font-weight: 600; color: var(--vi-dark); margin-top: 1.25rem; }
+  d-appendix p { font-size: 0.93rem; color: var(--vi-gray-500); line-height: 1.7; }
+  d-title h1 { font-size: 2rem; font-weight: 800; line-height: 1.25; color: var(--vi-black); }
+  d-title p { font-size: 1.05rem; color: var(--vi-gray-500); line-height: 1.6; max-width: 680px; }
+  .key-finding { margin: 1.5rem 0; padding: 1rem 1.25rem; border-radius: 8px; font-size: 0.93rem; line-height: 1.65; }
+  .key-finding.insight { background: var(--vi-highlight); border-left: 4px solid var(--vi-magenta); }
+  .key-finding.warning { background: #fef9c3; border-left: 4px solid var(--vi-warning); }
+  .key-finding.success { background: #f0fdf4; border-left: 4px solid var(--vi-success); }
+  .key-finding strong { color: var(--vi-black); }
+  .key-finding .finding-label { display: inline-block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--vi-magenta); margin-bottom: 0.3rem; }
+  .stats-banner { display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; margin: 1.5rem 0; padding: 1.25rem; background: var(--vi-black); border-radius: 8px; }
+  .stats-banner .stat { text-align: center; color: var(--vi-white); }
+  .stats-banner .stat .number { font-size: 1.6rem; font-weight: 800; line-height: 1.2; color: var(--vi-magenta-light); }
+  .stats-banner .stat .label { font-size: 0.75rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.04em; color: var(--vi-gray-300); }
+  .resource-links { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+  .resource-links a { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.5rem 1rem; background: var(--vi-white); border: 1px solid var(--vi-gray-200); border-radius: 6px; font-size: 0.85rem; font-weight: 500; color: var(--vi-magenta); text-decoration: none; transition: all 0.15s; }
+  .resource-links a:hover { background: var(--vi-highlight); border-color: var(--vi-magenta); box-shadow: 0 2px 8px rgba(225,0,152,0.12); }
+  d-contents a[style*="font-weight: 700"] { color: var(--vi-magenta) !important; }
+  @media (max-width: 1100px) { d-article h2 { font-size: 1.45rem; } d-title h1 { font-size: 1.7rem; } }
+
+  /* Distill template fixes: avoid double bullets and keep block math centered */
+  d-contents ul, d-contents li { list-style-type: none !important; }
+  d-contents li::marker { display: none !important; content: '' !important; }
+  d-math[display="block"] { width: 100% !important; display: block !important; text-align: center !important; margin: 1.5rem 0 !important; }
+  .katex-display { text-align: center !important; margin: 0 !important; }
+  

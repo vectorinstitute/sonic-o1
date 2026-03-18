@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: transparent;
+    padding: 16px;
+    color: #1e293b;
+  }
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .control-group label {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #64748b;
+  }
+  select {
+    padding: 6px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 12.5px;
+    background: #f8fafc;
+    color: #1e293b;
+    cursor: pointer;
+    min-width: 160px;
+  }
+  select:focus { outline: 2px solid #E10098; border-color: transparent; }
+  .chart-container {
+    position: relative;
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  canvas { width: 100% !important; }
+  .model-legend {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .model-legend .item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    color: #475569;
+    cursor: pointer;
+    padding: 3px 8px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .model-legend .item:hover { background: #f1f5f9; }
+  .model-legend .item.hidden { opacity: 0.35; text-decoration: line-through; }
+  .model-legend .swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="controls">
+  <div class="control-group">
+    <label>Task</label>
+    <select id="task-select" onchange="updateChart()">
+      <option value="summ">Summarization (Score)</option>
+      <option value="mcq">MCQ (Accuracy %)</option>
+      <option value="temporal">Temporal (R@0.5 %)</option>
+    </select>
+  </div>
+</div>
+
+<div class="chart-container">
+  <canvas id="radar-canvas" height="420"></canvas>
+</div>
+<div class="model-legend" id="legend"></div>
+
+<script>
+const topics = [
+  'Patient-Doctor', 'Job Interviews', 'Parent-Teacher',
+  'Customer Svc', 'Courtroom', 'Emergency',
+  'Transportation', 'Workplace', 'Housing',
+  'Restaurant', 'Mental Health', 'Town Halls', 'Olympics'
+];
+
+const models = [
+  { name: 'Gemini 3.0 Pro', color: '#E10098' },
+  { name: 'Qwen3-Omni', color: '#1a1a1a' },
+  { name: 'UniMoE-2.0', color: '#7c3aed' },
+  { name: 'MiniCPM-o-2.6', color: '#0891b2' },
+  { name: 'VITA 1.5', color: '#c2410c' },
+  { name: 'VideoLLaMA2', color: '#a3a3a3' },
+];
+
+const data = {
+  summ: [
+    [8.12, 8.33, 7.94, 7.67, 6.54, 6.25, 7.43, 7.00, 6.58, 5.91, 8.08, 7.00, 5.04],
+    [7.38, 7.14, 6.72, 6.13, 6.00, 5.10, 4.86, 6.08, 4.58, 5.00, 7.23, 4.72, 3.39],
+    [6.12, 6.76, 5.72, 4.33, 4.08, 3.90, 3.29, 4.75, 4.38, 4.91, 6.69, 4.33, 1.96],
+    [4.94, 4.19, 4.28, 3.20, 3.15, 3.35, 2.21, 3.17, 2.88, 3.13, 4.46, 2.06, 2.43],
+    [4.44, 3.71, 4.22, 1.73, 1.77, 2.70, 2.00, 2.50, 2.58, 2.26, 3.69, 2.28, 2.09],
+    [2.31, 2.19, 2.28, 1.27, 0.85, 1.65, 1.00, 1.17, 1.50, 1.70, 2.08, 0.83, 1.13],
+  ],
+  mcq: [
+    [99.0, 97.0, 98.7, 94.9, 96.5, 95.4, 96.1, 94.0, 95.3, 97.8, 98.5, 96.8, 92.8],
+    [94.1, 98.0, 95.2, 92.3, 98.3, 87.4, 82.4, 100, 93.8, 94.4, 100, 94.2, 87.0],
+    [92.2, 94.0, 92.6, 76.9, 92.2, 85.1, 88.2, 91.0, 85.3, 80.0, 93.8, 93.7, 81.2],
+    [92.2, 95.0, 92.6, 84.6, 87.0, 85.1, 82.4, 95.5, 80.6, 82.4, 89.2, 92.1, 78.3],
+    [80.4, 92.0, 89.6, 74.4, 87.0, 79.3, 84.3, 85.1, 76.0, 64.4, 87.7, 84.7, 75.4],
+    [56.9, 64.0, 61.7, 59.0, 51.3, 55.2, 49.0, 53.7, 51.9, 45.6, 50.8, 58.2, 49.3],
+  ],
+  temporal: [
+    [18.6, 31.0, 21.0, 31.9, 33.5, 17.8, 22.6, 29.6, 27.6, 26.6, 29.6, 15.9, 24.8],
+    [4.5, 5.5, 1.5, 3.4, 2.9, 2.4, 0.0, 3.2, 3.1, 4.3, 2.6, 3.0, 0.0],
+    [1.9, 1.2, 1.0, 0.9, 0.6, 0.4, 1.0, 3.3, 0.8, 0.5, 0.7, 0.2, 1.2],
+    [0.4, 1.6, 1.5, 0.9, 1.5, 0.0, 0.0, 0.7, 1.3, 0.5, 0.7, 0.5, 0.0],
+    [3.8, 1.2, 1.3, 0.9, 1.5, 0.0, 0.0, 0.0, 1.6, 0.5, 0.7, 1.3, 2.3],
+    [1.1, 0.4, 0.2, 0.0, 0.3, 0.4, 0.0, 1.3, 0.5, 0.0, 0.0, 0.2, 1.1],
+  ]
+};
+
+let chart = null;
+let hiddenModels = new Set();
+
+function getMaxForTask(task) {
+  if (task === 'summ') return 10;
+  if (task === 'mcq') return 100;
+  return 50;
+}
+
+function updateChart() {
+  const task = document.getElementById('task-select').value;
+  const datasets = models.map((m, i) => ({
+    label: m.name,
+    data: data[task][i],
+    borderColor: m.color,
+    backgroundColor: m.color + '18',
+    borderWidth: hiddenModels.has(i) ? 0 : 2,
+    pointRadius: hiddenModels.has(i) ? 0 : 3,
+    pointBackgroundColor: m.color,
+    hidden: hiddenModels.has(i),
+    tension: 0.1,
+  }));
+
+  if (chart) chart.destroy();
+
+  chart = new Chart(document.getElementById('radar-canvas'), {
+    type: 'radar',
+    data: { labels: topics, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      scales: {
+        r: {
+          beginAtZero: true,
+          max: getMaxForTask(task),
+          ticks: { stepSize: task === 'temporal' ? 10 : undefined, font: { size: 10 }, backdropColor: 'transparent' },
+          pointLabels: { font: { size: 10.5, weight: '500' }, color: '#475569' },
+          grid: { color: '#e2e8f0' },
+          angleLines: { color: '#e2e8f0' },
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          titleFont: { size: 12 },
+          bodyFont: { size: 11.5 },
+          padding: 10,
+          cornerRadius: 6,
+        }
+      },
+      animation: { duration: 400 },
+    }
+  });
+
+  renderLegend();
+}
+
+function renderLegend() {
+  const legend = document.getElementById('legend');
+  legend.innerHTML = '';
+  models.forEach((m, i) => {
+    const item = document.createElement('div');
+    item.className = 'item' + (hiddenModels.has(i) ? ' hidden' : '');
+    item.innerHTML = '<span class="swatch" style="background:' + m.color + '"></span>' + m.name;
+    item.onclick = () => {
+      if (hiddenModels.has(i)) hiddenModels.delete(i);
+      else hiddenModels.add(i);
+      updateChart();
+    };
+    legend.appendChild(item);
+  });
+}
+
+updateChart();
+</script>
+</body>
+</html>
