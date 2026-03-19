@@ -40,6 +40,18 @@
 </d-title>
 <d-byline></d-byline>
 
+<div style="background: linear-gradient(135deg, #f0f7ff 0%, #e8f4fd 100%); border: 1px solid #b3d9f7; border-left: 4px solid #1a73e8; border-radius: 6px; padding: 14px 20px; margin: 16px auto; max-width: 800px; display: flex; align-items: center; gap: 14px; font-family: sans-serif;">
+  <span style="font-size: 1.6em; flex-shrink: 0;">🤖</span>
+  <div>
+    <strong style="color: #1a73e8; font-size: 0.95em;">Also from this work</strong>
+    <span style="color: #555; font-size: 0.9em; margin-left: 6px;">— We also built a compound multi-agent system on top of SONIC-O1:</span>
+    <a href="https://vectorinstitute.github.io/sonic-o1-agent/" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; color: #1a73e8; font-weight: 600; font-size: 0.9em; text-decoration: none; border-bottom: 1px solid #1a73e8;">
+      SONIC-O1 Multi-Agent System
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+    </a>
+  </div>
+</div>
+
 <d-article>
   <d-contents>
     <nav class="toc figcaption">
@@ -123,7 +135,7 @@
 
   <h3 id="existing-benchmarks">Existing Benchmarks</h3>
   <p>
-    The table below compares SONIC-O1 against prominent video-QA and audio-visual benchmarks.
+    The table below compares SONIC-O1 against prominent video-only and audio-video benchmarks.
     While several benchmarks address individual aspects of multimodal evaluation, none combine
     native audio-video QA, full temporal localization, demographic metadata for fairness analysis,
     and open-source availability:
@@ -274,7 +286,7 @@
     The answer is <strong>yes &mdash; but only if the model is large enough</strong>.
     Qwen3-Omni gains +10.7% MCQ accuracy and +2.2 summarization points with audio. But
     VideoLLaMA2 (7B) actually <em>degrades</em> on summarization (&minus;0.1), suggesting
-    that effective audio-visual fusion requires sufficient model capacity.
+    that effective audio-video fusion requires sufficient model capacity.
   </p>
 
   <h3 id="duration-robustness">Duration Robustness</h3>
@@ -400,6 +412,24 @@
     Resources provided by the Province of Ontario and the Government of Canada through CIFAR,
     and companies sponsoring the Vector Institute.
     Funded by the EU Horizon Europe AIXPERT project (Grant No. 101214389).
+  </p>
+
+  <h3 id="license">License</h3>
+  <p>
+    This dataset is licensed under the Vector Institute License. The SONIC-O1 dataset may only be accessed and used by:
+  </p>
+  <ul>
+    <li>Academic entities for non-commercial academic research purposes</li>
+    <li>Vector Institute sponsors and partners</li>
+  </ul>
+  <p>
+    By accessing or using this dataset, you agree to be bound by the terms of the Vector Institute License.
+  </p>
+  <p>
+    <strong>Attribution Required:</strong> When using this dataset, include: "This work is licensed under the Vector Institute License, Copyright &copy; Vector Institute. All Rights Reserved."
+  </p>
+  <p>
+    For products or services built using this dataset, prominently display: "Built with Vector Institute SONIC-O1"
   </p>
 
   <h3 id="data-ethics">Data Collection &amp; Ethics</h3>
