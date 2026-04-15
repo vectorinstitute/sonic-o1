@@ -14,14 +14,13 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-import argparse
-import gc
+
 import yaml
 from dotenv import load_dotenv
 from tqdm import tqdm
-import torch
-import traceback
-load_dotenv(os.path.expanduser("~/.config/secrets/.env"))
+
+
+load_dotenv()
 sys.path.append(str(Path(__file__).parent.parent))
 
 # Local package imports after path setup (required for script/CLI usage)
@@ -40,37 +39,24 @@ logger = logging.getLogger(__name__)
 class InferenceRunner:
     """Run inference for model evaluation with resume capability."""
 
-    def __init__(
-        self,
-        config_path: str,
-        experiment_name: Optional[str] = None,
-        vqa_gt_suffix: str = "",
-    ) -> None:
+    def __init__(self, config_path: str, experiment_name: Optional[str] = None) -> None:
         """
         Initialize runner from a YAML config file.
 
         Args:
             config_path: Path to models configuration YAML.
             experiment_name: Optional experiment label for organizing outputs.
-            vqa_gt_suffix: For ``task2_mcq`` only, insert before ``.json`` (e.g. ``_v2``)
-                for ground-truth and prediction files so prior MCQ runs are not overwritten.
         """
-        self.config_path = Path(config_path).resolve()
-        self.config_dir = self.config_path.parent
-
-        with open(self.config_path, "r") as f:
+        with open(config_path, "r") as f:
             self.config = yaml.safe_load(f)
-        self.dataset_path = self._resolve_config_path(self.config["dataset_path"])
-        self.vqa_path = self._resolve_config_path(self.config["vqa_path"])
-        self.vqa_gt_suffix = vqa_gt_suffix or ""
+
+        self.dataset_path = Path(self.config["dataset_path"])
+        self.vqa_path = Path(self.config["vqa_path"])
 
         self.model = None
         self.model_name = None
         self.model_config = None
         self.experiment_name = experiment_name
-        self.predictions_base_path = self._resolve_config_path(
-            self.config.get("results", {}).get("predictions_path", "results/predictions")
-        )
 
         self.frame_sampler = None
         self.video_segmenter = VideoSegmenter()
@@ -80,11 +66,6 @@ class InferenceRunner:
 
         self.video_metadata = {}
         self.failed_entries = []
-
-    def _resolve_config_path(self, path_value: str) -> Path:
-        """Resolve a config path; keep absolute paths, resolve relatives from CWD."""
-        path = Path(path_value)
-        return path if path.is_absolute() else (Path.cwd() / path)
 
     def _get_temp_dir(self) -> Path:
         """Get temporary directory for video segments."""
@@ -215,20 +196,9 @@ class InferenceRunner:
             return audio_path
         return None
 
-    def _task_topic_json_basename(self, task: str, topic_name: str) -> str:
-        """
-        Basename for ground-truth and prediction JSON.
-
-        When ``vqa_gt_suffix`` is set (e.g. ``_v2``), it applies only to
-        ``task2_mcq`` so prior t1/t3 files and non-suffixed MCQ baselines stay valid.
-        """
-        if self.vqa_gt_suffix and task == "task2_mcq":
-            return f"{topic_name}{self.vqa_gt_suffix}.json"
-        return f"{topic_name}.json"
-
     def load_ground_truth(self, task: str, topic_name: str) -> Dict:
         """Load ground truth JSON for task and topic."""
-        gt_path = self.vqa_path / task / self._task_topic_json_basename(task, topic_name)
+        gt_path = self.vqa_path / task / f"{topic_name}.json"
         if not gt_path.exists():
             raise FileNotFoundError(f"Ground truth not found: {gt_path}")
 
@@ -238,11 +208,16 @@ class InferenceRunner:
     def get_prediction_path(self, task: str, topic_name: str) -> Path:
         """Get path to prediction file."""
         if self.experiment_name:
-            output_dir = self.predictions_base_path / self.experiment_name / self.model_name / task
+            output_dir = (
+                Path("results/predictions")
+                / self.experiment_name
+                / self.model_name
+                / task
+            )
         else:
-            output_dir = self.predictions_base_path / self.model_name / task
+            output_dir = Path("results/predictions") / self.model_name / task
 
-        return output_dir / self._task_topic_json_basename(task, topic_name)
+        return output_dir / f"{topic_name}.json"
 
     def load_existing_predictions(self, task: str, topic_name: str) -> Optional[Dict]:
         """Load existing predictions if they exist."""
@@ -546,10 +521,7 @@ class InferenceRunner:
                 if attempt < max_attempts - 1:
                     time.sleep(2)
                     continue
-                    
-                gc.collect()
-                torch.cuda.empty_cache()
-                torch.cuda.synchronize()
+
         raise RuntimeError(
             f"All {max_attempts} attempts failed. Last error: {last_error}"
         )
@@ -573,16 +545,9 @@ class InferenceRunner:
                 "task1_summarization", topic_name
             )
 
-        if retry_failed and not existing_predictions:
-            logger.warning(
-                f"--retry-failed enabled but no existing predictions found for task1_summarization/{topic_name}; skipping."
-            )
-            return []
-
         # Initialize predictions list with None for each GT entry
         num_gt_entries = len(ground_truth["entries"])
         predictions = [None] * num_gt_entries
-        failed_indices = set()
 
         # Load existing predictions by matching to GT index
         if existing_predictions and not overwrite:
@@ -607,10 +572,7 @@ class InferenceRunner:
         num_done = sum(1 for p in predictions if p is not None)
         logger.info(f"Found {num_done}/{num_gt_entries} already processed videos")
 
-        if retry_failed:
-            indices_to_process = sorted(failed_indices)
-        else:
-            indices_to_process = [i for i, p in enumerate(predictions) if p is None]
+        indices_to_process = [i for i, p in enumerate(predictions) if p is None]
 
         if not indices_to_process:
             logger.info("No entries to process")
@@ -718,16 +680,9 @@ class InferenceRunner:
                 "task2_mcq", topic_name
             )
 
-        if retry_failed and not existing_predictions:
-            logger.warning(
-                f"--retry-failed enabled but no existing predictions found for task2_mcq/{topic_name}; skipping."
-            )
-            return []
-
         # Initialize predictions list with None for each GT entry
         num_gt_entries = len(ground_truth["entries"])
         predictions = [None] * num_gt_entries
-        failed_indices = set()
 
         # Load existing predictions by matching to GT index
         if existing_predictions and not overwrite:
@@ -763,10 +718,7 @@ class InferenceRunner:
         num_done = sum(1 for p in predictions if p is not None)
         logger.info(f"Found {num_done}/{num_gt_entries} already processed segments")
 
-        if retry_failed:
-            indices_to_process = sorted(failed_indices)
-        else:
-            indices_to_process = [i for i, p in enumerate(predictions) if p is None]
+        indices_to_process = [i for i, p in enumerate(predictions) if p is None]
 
         if not indices_to_process:
             logger.info("No entries to process")
@@ -897,16 +849,9 @@ class InferenceRunner:
                 "task3_temporal_localization", topic_name
             )
 
-        if retry_failed and not existing_predictions:
-            logger.warning(
-                f"--retry-failed enabled but no existing predictions found for task3_temporal_localization/{topic_name}; skipping."
-            )
-            return []
-
         # Initialize predictions list with None for each GT entry
         num_gt_entries = len(ground_truth["entries"])
         predictions = [None] * num_gt_entries
-        failed_indices = set()
 
         # Load existing predictions by matching to GT index
         if existing_predictions and not overwrite:
@@ -947,10 +892,7 @@ class InferenceRunner:
         logger.info(f"Found {num_done}/{num_gt_entries} already processed segments")
 
         # Find indices to process
-        if retry_failed:
-            indices_to_process = sorted(failed_indices)
-        else:
-            indices_to_process = [i for i, p in enumerate(predictions) if p is None]
+        indices_to_process = [i for i, p in enumerate(predictions) if p is None]
 
         if not indices_to_process:
             logger.info("No entries to process")
@@ -1065,12 +1007,21 @@ class InferenceRunner:
     def save_predictions(self, task: str, topic_name: str, predictions: List[Dict]):
         """Save predictions to JSON."""
         if self.experiment_name:
-            output_dir = self.predictions_base_path / self.experiment_name / self.model_name / task
+            output_dir = (
+                Path("05_evaluation_inference/results/predictions")
+                / self.experiment_name
+                / self.model_name
+                / task
+            )
         else:
-            output_dir = self.predictions_base_path / self.model_name / task
+            output_dir = (
+                Path("05_evaluation_inference/results/predictions")
+                / self.model_name
+                / task
+            )
 
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_file = output_dir / self._task_topic_json_basename(task, topic_name)
+        output_file = output_dir / f"{topic_name}.json"
 
         successful = len([p for p in predictions if "error" not in p])
         failed = len([p for p in predictions if "error" in p])
@@ -1289,28 +1240,13 @@ if __name__ == "__main__":
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--retry-failed", action="store_true")
-    parser.add_argument(
-        "--vqa-gt-suffix",
-        type=str,
-        default="",
-        help=(
-            "For task2_mcq only: suffix before .json for GT and predictions "
-            "(e.g. _v2 → vqa/.../<topic>_v2.json and results/predictions/.../<topic>_v2.json)."
-        ),
-    )
 
     args = parser.parse_args()
 
-    runner = InferenceRunner(
-        args.config,
-        experiment_name=args.experiment_name,
-        vqa_gt_suffix=args.vqa_gt_suffix or "",
-    )
+    runner = InferenceRunner(args.config, experiment_name=args.experiment_name)
 
     tasks = args.tasks if args.tasks else runner.config["tasks"]
     topics = args.topics if args.topics else runner.config["topics"]
-    if topics and "all" in topics:
-        topics = runner.config["topics"]
 
     if args.no_empathy:
         enable_empathy = False
