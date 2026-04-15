@@ -93,3 +93,7 @@ sonic-o1/05_evaluation_inference/metrics/demographics_metrics.py
 sonic-o1/05_evaluation_inference/models/backup_*.txt
 sonic-o1/05_evaluation_inference/visualitzation/
 **/results/
+.cache/
+**.pt
+**/logs/**
+docs/
