@@ -1,384 +1,560 @@
 """
-Video segmentation utility using FFmpeg
+video_segmenter.py.
+
+Video segmentation utility using FFmpeg.
+
+Author: SONIC-O1 Team
 """
-import subprocess
-import tempfile
-import shutil
-import re
+
 import logging
-from pathlib import Path
-from typing import List, Dict, Optional
+import re
+import shutil
+import subprocess
 import time
+from pathlib import Path
+from typing import Dict, List, Optional, Set
+
 
 logger = logging.getLogger(__name__)
 
 
+def _default_temp_segment_dir(task_type: str, kind: str) -> Path:
+    """
+    Project-local temp under sonic-o1/.tmp_video_segments/ (removed after use via cleanup_segments).
+
+    `kind` is "video" or "audio" so parallel calls never collide.
+    """
+    # .../04_vqa_generation/utils/video_segmenter.py -> sonic-o1
+    sonic_o1 = Path(__file__).resolve().parent.parent.parent
+    root = sonic_o1 / ".tmp_video_segments"
+    sub = root / f"{task_type}_{kind}_{time.time_ns()}"
+    sub.mkdir(parents=True, exist_ok=True)
+    return sub
+
+
 class VideoSegmenter:
-    """Handle video segmentation using FFmpeg"""
-    
+    """Handle video segmentation using FFmpeg."""
+
     def __init__(self, config):
         """
         Initialize segmenter with configuration.
-        
+
         Args:
             config: Configuration object with video settings
         """
-        self.summarization_segment_duration = int(config.video.summarization_segment_duration)
+        self.summarization_segment_duration = int(
+            config.video.summarization_segment_duration
+        )
         self.mcq_segment_duration = int(config.video.mcq_segment_duration)
-        self.temporal_localization_segment_duration = int(config.video.temporal_localization_segment_duration) 
+        self.temporal_localization_segment_duration = int(
+            config.video.temporal_localization_segment_duration
+        )
         self.segment_overlap = int(config.video.segment_overlap)
-    
+
     @staticmethod
     def get_actual_duration(video_path: Path) -> float:
         """
         Get actual video duration using multiple methods.
-        
-        FIXED: Try stream duration first, then format duration.
+
+        Tries stream duration first, then format duration.
         Stream duration is more reliable for videos with metadata issues.
+
+        Returns
+        -------
+        float
+            Duration in seconds.
+
+        Raises
+        ------
+        Exception
+            If duration cannot be obtained from the video.
         """
         # Method 1: Try stream duration (more reliable)
         cmd = [
-            "ffprobe", "-v", "error",
-            "-select_streams", "v:0",
-            "-show_entries", "stream=duration",
-            "-of", "default=nw=1:nk=1",
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=duration",
+            "-of",
+            "default=nw=1:nk=1",
             str(video_path),
         ]
-        
+
         try:
             result = subprocess.run(
-                cmd, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE, 
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=10
+                timeout=10,
+                check=False,
             )
-            
+
             if result.returncode == 0:
                 output = result.stdout.strip()
-                if output and output != 'N/A':
+                if output and output != "N/A":
                     try:
                         duration = float(output)
                         if duration > 0:
-                            logger.debug(f"Got stream duration: {duration:.3f}s")
+                            logger.debug("Got stream duration: %.3fs", duration)
                             return duration
                     except ValueError:
                         pass
         except Exception as e:
-            logger.debug(f"Stream duration failed: {e}")
-        
+            logger.debug("Stream duration failed: %s", e)
+
         # Method 2: Try format duration (fallback)
         cmd = [
-            "ffprobe", "-v", "error",
-            "-show_entries", "format=duration",
-            "-of", "default=nw=1:nk=1",
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=nw=1:nk=1",
             str(video_path),
         ]
-        
+
         try:
             result = subprocess.run(
-                cmd, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE, 
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=10
+                timeout=10,
+                check=False,
             )
-            
+
             if result.returncode == 0:
                 output = result.stdout.strip()
                 if output:
                     try:
                         duration = float(output)
                         if duration > 0:
-                            logger.debug(f"Got format duration: {duration:.3f}s")
+                            logger.debug("Got format duration: %.3fs", duration)
                             return duration
                     except ValueError:
                         pass
         except Exception as e:
-            logger.debug(f"Format duration failed: {e}")
-        
-        raise Exception(f"Could not get duration from {video_path}")
+            logger.debug("Format duration failed: %s", e)
 
-    def segment_video(self, 
-                     video_path: Path,
-                     duration_seconds: float,
-                     task_type: str = 'summarization',
-                     output_dir: Optional[Path] = None) -> List[Dict]:
+        raise Exception("Could not get duration from %s" % video_path)
+
+    def segment_video(
+        self,
+        video_path: Path,
+        duration_seconds: float,
+        task_type: str = "summarization",
+        output_dir: Optional[Path] = None,
+    ) -> List[Dict]:
         """
         Segment video into chunks based on task type.
+
+        Args
+        ----
+        video_path : Path
+            Path to the video file.
+        duration_seconds : float
+            Duration in seconds (from metadata; ffprobe may override).
+        task_type : str
+            One of "summarization", "mcq", "temporal_localization".
+        output_dir : Path, optional
+            Directory for segment files; created if None.
+
+        Returns
+        -------
+        list of dict
+            Each dict has segment_path, start, end, duration,
+            segment_number, and optionally is_temp.
         """
-    
         try:
             actual_duration = self.get_actual_duration(video_path)
-            
-            # FIXED: Detect severe duration mismatch (likely corrupted metadata)
-            duration_ratio = actual_duration / duration_seconds if duration_seconds > 0 else 999
-            
+
+            # Detect severe duration mismatch (likely corrupted metadata)
+            duration_ratio = (
+                actual_duration / duration_seconds if duration_seconds > 0 else 999
+            )
+
             if duration_ratio > 5 or duration_ratio < 0.2:
                 logger.error(
-                    f"SEVERE duration mismatch for {video_path}: "
-                    f"metadata={duration_seconds:.1f}s, ffprobe={actual_duration:.1f}s (ratio={duration_ratio:.1f}x). "
-                    f"Video metadata is likely corrupted. Using metadata value to be safe."
+                    "SEVERE duration mismatch for %s: metadata=%.1fs, "
+                    "ffprobe=%.1fs (ratio=%.1fx). Video metadata likely "
+                    "corrupted. Using metadata value.",
+                    video_path,
+                    duration_seconds,
+                    actual_duration,
+                    duration_ratio,
                 )
-                # Don't trust ffprobe when ratio is extreme
                 actual_duration = duration_seconds
             elif abs(actual_duration - duration_seconds) > 0.5:
                 logger.warning(
-                    f"Duration mismatch for {video_path}: "
-                    f"metadata={duration_seconds:.3f}s, ffprobe={actual_duration:.3f}s. "
-                    f"Using ffprobe value."
+                    "Duration mismatch for %s: metadata=%.3fs, "
+                    "ffprobe=%.3fs. Using ffprobe value.",
+                    video_path,
+                    duration_seconds,
+                    actual_duration,
                 )
-            
+
             duration_seconds = actual_duration
         except Exception as e:
             logger.warning(
-                f"Could not get actual duration with ffprobe for {video_path}, "
-                f"falling back to provided {duration_seconds:.3f}s. Error: {e}"
+                "Could not get actual duration with ffprobe for %s, "
+                "falling back to %.3fs. Error: %s",
+                video_path,
+                duration_seconds,
+                e,
             )
 
         # Small epsilon to avoid sampling exactly at the end
         epsilon = 0.05
         duration_seconds = max(0.0, duration_seconds - epsilon)
 
-        if task_type == 'summarization':
+        if task_type == "summarization":
             max_segment_duration = self.summarization_segment_duration
-        elif task_type == 'mcq':
+        elif task_type == "mcq":
             max_segment_duration = self.mcq_segment_duration
-        elif task_type == 'temporal_localization':
+        elif task_type == "temporal_localization":
             max_segment_duration = self.temporal_localization_segment_duration
         else:
             max_segment_duration = self.mcq_segment_duration
-            logger.warning(f"Unknown task_type '{task_type}', defaulting to MCQ segment duration")
-        
+            logger.warning(
+                "Unknown task_type '%s', defaulting to MCQ segment duration",
+                task_type,
+            )
+
         if duration_seconds <= max_segment_duration:
             logger.info(
-                f"Video duration ({duration_seconds:.3f}s) <= max segment ({max_segment_duration}s) "
-                f"for {task_type}, returning as single segment"
+                "Video duration (%.3fs) <= max segment (%s)s for %s, "
+                "returning as single segment",
+                duration_seconds,
+                max_segment_duration,
+                task_type,
             )
-            return [{
-                'segment_path': video_path,
-                'start': 0.0,
-                'end': duration_seconds,
-                'duration': duration_seconds,
-                'segment_number': 0
-            }]
-                
+            return [
+                {
+                    "segment_path": video_path,
+                    "start": 0.0,
+                    "end": duration_seconds,
+                    "duration": duration_seconds,
+                    "segment_number": 0,
+                }
+            ]
+
         if output_dir is None:
-            output_dir = Path.home() / 'scratch' / 'video_segments' / f"{task_type}_{int(time.time())}"
-            output_dir.mkdir(parents=True, exist_ok=True)
+            output_dir = _default_temp_segment_dir(task_type, "video")
             temp_dir = output_dir
         else:
             output_dir.mkdir(parents=True, exist_ok=True)
             temp_dir = None
-        
+
         num_segments = int(duration_seconds / max_segment_duration) + 1
         logger.info(
-            f"Segmenting {duration_seconds:.3f}s video for {task_type} into {num_segments} chunks "
-            f"(max {max_segment_duration}s each with {self.segment_overlap}s overlap)"
+            "Segmenting %.3fs video for %s into %d chunks "
+            "(max %ss each with %ss overlap)",
+            duration_seconds,
+            task_type,
+            num_segments,
+            max_segment_duration,
+            self.segment_overlap,
         )
-        
+
         segments = []
-        
+
         try:
             for i in range(num_segments):
-                start_time = max(0, i * max_segment_duration - (self.segment_overlap if i > 0 else 0))
+                start_time = max(
+                    0,
+                    i * max_segment_duration - (self.segment_overlap if i > 0 else 0),
+                )
                 segment_duration = min(
                     max_segment_duration + self.segment_overlap,
-                    duration_seconds - start_time
+                    duration_seconds - start_time,
                 )
                 if segment_duration <= 0:
                     break
 
                 end_time = start_time + segment_duration
-                
-                segment_path = output_dir / f"segment_{i:03d}{video_path.suffix}"
-                
-                logger.info(f"Creating segment {i+1}/{num_segments}: {start_time:.1f}s - {end_time:.1f}s")
-                
+
+                segment_path = output_dir / ("segment_%03d%s" % (i, video_path.suffix))
+
+                logger.info(
+                    "Creating segment %d/%d: %.1fs - %.1fs",
+                    i + 1,
+                    num_segments,
+                    start_time,
+                    end_time,
+                )
+
                 # FIXED: Use copy codec when possible (much faster)
                 # Calculate timeout based on segment duration (2x for safety)
                 timeout = max(300, int(segment_duration * 2))
-                
+
                 cmd = [
-                    'ffmpeg', '-y',
-                    '-ss', str(start_time),
-                    '-i', str(video_path),
-                    '-t', str(segment_duration),
-                    '-c', 'copy',  # FIXED: Copy codec (no re-encoding)
-                    '-avoid_negative_ts', 'make_zero',  # FIXED: Better timestamp handling
-                    str(segment_path)
+                    "ffmpeg",
+                    "-y",
+                    "-ss",
+                    str(start_time),
+                    "-i",
+                    str(video_path),
+                    "-t",
+                    str(segment_duration),
+                    "-c",
+                    "copy",  # FIXED: Copy codec (no re-encoding)
+                    "-avoid_negative_ts",
+                    "make_zero",  # FIXED: Better timestamp handling
+                    str(segment_path),
                 ]
-                
+
                 result = subprocess.run(
-                    cmd, 
-                    capture_output=True, 
+                    cmd,
+                    capture_output=True,
                     text=True,
-                    timeout=timeout
+                    timeout=timeout,
+                    check=False,
                 )
-                
+
                 if result.returncode != 0:
-                    logger.error(f"FFmpeg error: {result.stderr}")
-                    raise Exception(f"Failed to create segment {i}: {result.stderr}")
-                
+                    logger.error("FFmpeg error: %s", result.stderr)
+                    raise Exception(
+                        "Failed to create segment %d: %s" % (i, result.stderr)
+                    )
+
                 if not segment_path.exists():
-                    raise Exception(f"Segment file not created: {segment_path}")
-                
-                segments.append({
-                    'segment_path': segment_path,
-                    'start': start_time,
-                    'end': end_time,
-                    'duration': segment_duration,
-                    'segment_number': i,
-                    'is_temp': temp_dir is not None
-                })
-            
-            logger.info(f"Successfully created {len(segments)} segments for {task_type}")
+                    raise Exception("Segment file not created: %s" % segment_path)
+
+                segments.append(
+                    {
+                        "segment_path": segment_path,
+                        "start": start_time,
+                        "end": end_time,
+                        "duration": segment_duration,
+                        "segment_number": i,
+                        "is_temp": temp_dir is not None,
+                    }
+                )
+
+            logger.info(
+                "Successfully created %d segments for %s",
+                len(segments),
+                task_type,
+            )
             return segments
-            
+
         except Exception as e:
-            logger.error(f"Error during segmentation: {e}")
+            logger.error("Error during segmentation: %s", e)
             if temp_dir and temp_dir.exists():
                 shutil.rmtree(temp_dir)
             raise
 
-    
-    def segment_audio(self,
-                     audio_path: Path,
-                     duration_seconds: float,
-                     task_type: str = 'summarization',
-                     output_dir: Optional[Path] = None) -> List[Dict]:
+    def segment_audio(
+        self,
+        audio_path: Path,
+        duration_seconds: float,
+        task_type: str = "summarization",
+        output_dir: Optional[Path] = None,
+    ) -> List[Dict]:
         """
         Segment audio file into chunks based on task type.
+
+        Args
+        ----
+        audio_path : Path
+            Path to the audio file.
+        duration_seconds : float
+            Duration in seconds.
+        task_type : str
+            One of "summarization", "mcq", "temporal_localization".
+        output_dir : Path, optional
+            Directory for segment files; created if None.
+
+        Returns
+        -------
+        list of dict
+            Each dict has segment_path, start, end, duration,
+            segment_number, and optionally is_temp.
         """
-        if task_type == 'summarization':
+        if task_type == "summarization":
             max_segment_duration = self.summarization_segment_duration
-        elif task_type == 'mcq':
+        elif task_type == "mcq":
             max_segment_duration = self.mcq_segment_duration
-        elif task_type == 'temporal_localization':
+        elif task_type == "temporal_localization":
             max_segment_duration = self.temporal_localization_segment_duration
         else:
             max_segment_duration = self.mcq_segment_duration
-            logger.warning(f"Unknown task_type '{task_type}', defaulting to MCQ segment duration")
-        
-        
+            logger.warning(
+                "Unknown task_type '%s', defaulting to MCQ segment duration",
+                task_type,
+            )
+
         if duration_seconds <= max_segment_duration:
-            return [{
-                'segment_path': audio_path,
-                'start': 0,
-                'end': duration_seconds,
-                'duration': duration_seconds,
-                'segment_number': 0
-            }]
-        
+            return [
+                {
+                    "segment_path": audio_path,
+                    "start": 0,
+                    "end": duration_seconds,
+                    "duration": duration_seconds,
+                    "segment_number": 0,
+                }
+            ]
+
         if output_dir is None:
-            output_dir = Path.home() / 'scratch' / 'audio_segments' / f"{task_type}_{int(time.time())}"
-            output_dir.mkdir(parents=True, exist_ok=True)
+            output_dir = _default_temp_segment_dir(task_type, "audio")
             temp_dir = output_dir
         else:
             output_dir.mkdir(parents=True, exist_ok=True)
             temp_dir = None
         num_segments = int(duration_seconds / max_segment_duration) + 1
         segments = []
-        
+
         try:
             for i in range(num_segments):
-                start_time = max(0, i * max_segment_duration - (self.segment_overlap if i > 0 else 0))
+                start_time = max(
+                    0,
+                    i * max_segment_duration - (self.segment_overlap if i > 0 else 0),
+                )
                 segment_duration = min(
                     max_segment_duration + self.segment_overlap,
-                    duration_seconds - start_time
+                    duration_seconds - start_time,
                 )
-                
-                segment_path = output_dir / f"segment_{i:03d}{audio_path.suffix}"
-                
+
+                segment_path = output_dir / ("segment_%03d%s" % (i, audio_path.suffix))
+
                 cmd = [
-                    'ffmpeg', '-y',
-                    '-ss', str(start_time),
-                    '-i', str(audio_path),
-                    '-t', str(segment_duration),
-                    '-c', 'copy',
-                    str(segment_path)
+                    "ffmpeg",
+                    "-y",
+                    "-ss",
+                    str(start_time),
+                    "-i",
+                    str(audio_path),
+                    "-t",
+                    str(segment_duration),
+                    "-c",
+                    "copy",
+                    str(segment_path),
                 ]
-                
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-                
+
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                    check=False,
+                )
+
                 if result.returncode != 0:
-                    logger.error(f"FFmpeg audio segment error: {result.stderr}")
-                    raise Exception(f"Failed to create audio segment {i}")
-                
-                segments.append({
-                    'segment_path': segment_path,
-                    'start': start_time,
-                    'end': start_time + segment_duration,
-                    'duration': segment_duration,
-                    'segment_number': i,
-                    'is_temp': temp_dir is not None
-                })
-            
-            logger.info(f"Successfully created {len(segments)} audio segments for {task_type}")
+                    logger.error("FFmpeg audio segment error: %s", result.stderr)
+                    raise Exception("Failed to create audio segment %d" % i)
+
+                segments.append(
+                    {
+                        "segment_path": segment_path,
+                        "start": start_time,
+                        "end": start_time + segment_duration,
+                        "duration": segment_duration,
+                        "segment_number": i,
+                        "is_temp": temp_dir is not None,
+                    }
+                )
+
+            logger.info(
+                "Successfully created %d audio segments for %s",
+                len(segments),
+                task_type,
+            )
             return segments
-            
-        except Exception as e:
+
+        except Exception:
             if temp_dir and temp_dir.exists():
                 shutil.rmtree(temp_dir)
             raise
-    
-    def extract_transcript_segment(self, 
-                                transcript_path: Path,
-                                start_time: float,
-                                end_time: float,
-                                strip_timestamps: bool = False) -> str:
+
+    def extract_transcript_segment(
+        self,
+        transcript_path: Path,
+        start_time: float,
+        end_time: float,
+        strip_timestamps: bool = False,
+    ) -> str:
         """
         Extract portion of SRT transcript for a time segment.
+
+        Args
+        ----
+        transcript_path : Path
+            Path to SRT file.
+        start_time : float
+            Segment start time in seconds.
+        end_time : float
+            Segment end time in seconds.
+        strip_timestamps : bool
+            If True, return plain text; else keep SRT blocks.
+
+        Returns
+        -------
+        str
+            Extracted transcript text or empty string on error.
         """
         try:
-            with open(transcript_path, 'r', encoding='utf-8') as f:
+            with open(transcript_path, "r", encoding="utf-8") as f:
                 content = f.read()
-            
-            segments = content.strip().split('\n\n')
+
+            segments = content.strip().split("\n\n")
             extracted = []
-            
+
             for segment in segments:
-                lines = segment.split('\n')
+                lines = segment.split("\n")
                 if len(lines) < 3:
                     continue
-                
-                timestamp_pattern = r'(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})'
+
+                timestamp_pattern = (
+                    r"(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*"
+                    r"(\d{2}):(\d{2}):(\d{2}),(\d{3})"
+                )
                 match = re.search(timestamp_pattern, lines[1])
-                
+
                 if match:
                     h1, m1, s1, ms1, h2, m2, s2, ms2 = map(int, match.groups())
-                    seg_start = h1*3600 + m1*60 + s1 + ms1/1000
-                    seg_end = h2*3600 + m2*60 + s2 + ms2/1000
-                    
+                    seg_start = h1 * 3600 + m1 * 60 + s1 + ms1 / 1000
+                    seg_end = h2 * 3600 + m2 * 60 + s2 + ms2 / 1000
+
                     if seg_start < end_time and seg_end > start_time:
                         if strip_timestamps:
                             text_lines = lines[2:]
-                            extracted.append(' '.join(text_lines))
+                            extracted.append(" ".join(text_lines))
                         else:
                             extracted.append(segment)
-            
+
             if strip_timestamps:
-                return ' '.join(extracted)
-            else:
-                return '\n\n'.join(extracted)
-            
+                return " ".join(extracted)
+            return "\n\n".join(extracted)
+
         except Exception as e:
-            logger.warning(f"Could not extract transcript segment: {e}")
+            logger.warning("Could not extract transcript segment: %s", e)
             return ""
-    
+
     def cleanup_segments(self, segments: List[Dict]):
         """
-        Cleanup temporary segment files.
+        Clean up temporary segment files.
+
+        Args
+        ----
+        segments : list of dict
+            List of segment dicts with segment_path and is_temp.
         """
+        seen: Set[Path] = set()
         for seg in segments:
-            if seg.get('is_temp', False):
-                try:
-                    seg_path = seg['segment_path']
-                    if seg_path.exists():
-                        temp_dir = seg_path.parent
-                        if temp_dir.exists() and 'segments' in temp_dir.name:
-                            shutil.rmtree(temp_dir)
-                            logger.info(f"Cleaned up temp directory: {temp_dir}")
-                            break
-                except Exception as e:
-                    logger.warning(f"Failed to cleanup segment: {e}")
+            if not seg.get("is_temp", False):
+                continue
+            try:
+                seg_path = Path(seg["segment_path"])
+                temp_dir = seg_path.parent
+                if temp_dir in seen or not temp_dir.exists():
+                    continue
+                seen.add(temp_dir)
+                shutil.rmtree(temp_dir)
+                logger.info("Cleaned up temp directory: %s", temp_dir)
+            except Exception as e:
+                logger.warning("Failed to cleanup segment: %s", e)

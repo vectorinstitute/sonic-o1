@@ -1,11 +1,14 @@
-"""
-Segment videos and audio using ffmpeg/ffprobe.
+"""segmenter.py.
+
+Segment videos and audio using ffmpeg/ffprobe for processing long media files.
+
+Author: SONIC-O1 Team
 """
 
 import logging
 import subprocess
 from pathlib import Path
-from typing import Optional
+
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +24,11 @@ def _run_cmd(cmd, timeout: int = 300) -> subprocess.CompletedProcess:
             text=True,
             timeout=timeout,
         )
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         raise EnvironmentError(
             "ffmpeg/ffprobe not found. Make sure FFmpeg is installed "
             "and available on PATH."
-        ) from e
+        )
 
     if result.returncode != 0:
         logger.error("Command failed: %s", result.stderr)
@@ -47,10 +50,10 @@ class VideoSegmenter:
                     stderr=subprocess.DEVNULL,
                     check=False,
                 )
-            except FileNotFoundError as e:
+            except FileNotFoundError:
                 raise EnvironmentError(
                     f"{bin_name} not found. Install FFmpeg and ensure it is on PATH."
-                ) from e
+                )
 
     # -------------------------------------------------------------------------
     # Duration helpers
@@ -66,7 +69,8 @@ class VideoSegmenter:
         Args:
             video_path: Path to video file
 
-        Returns:
+        Returns
+        -------
             Duration in seconds (float)
         """
         if not video_path.exists():
@@ -142,7 +146,8 @@ class VideoSegmenter:
             end_time: End time in seconds
             output_path: Path for output segment
 
-        Returns:
+        Returns
+        -------
             Path to extracted segment
         """
         if not video_path.exists():
@@ -212,7 +217,8 @@ class VideoSegmenter:
             output_path: Path for output segment
             output_format: 'm4a' (AAC) or 'wav' (PCM S16LE 16kHz)
 
-        Returns:
+        Returns
+        -------
             Path to extracted segment
         """
         if not audio_path.exists():
@@ -297,7 +303,8 @@ class VideoSegmenter:
             output_path: Path for output audio
             output_format: Target format ('wav' or 'm4a')
 
-        Returns:
+        Returns
+        -------
             Path to converted audio
         """
         if not input_path.exists():
@@ -331,9 +338,7 @@ class VideoSegmenter:
 
         result = _run_cmd(cmd, timeout=600)
         if result.returncode != 0:
-            raise RuntimeError(
-                f"Failed to convert audio: {result.stderr.strip()}"
-            )
+            raise RuntimeError(f"Failed to convert audio: {result.stderr.strip()}")
 
         if not output_path.exists() or output_path.stat().st_size == 0:
             raise RuntimeError(f"Converted audio not created: {output_path}")
