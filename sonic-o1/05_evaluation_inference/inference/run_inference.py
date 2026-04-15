@@ -149,6 +149,23 @@ class InferenceRunner:
             from models.gpt4o import GPT4o  # noqa: PLC0415
 
             self.model = GPT4o(model_name, model_config)
+        elif model_class == "OLA":
+            from models.ola import OLA  # noqa: PLC0415
+
+            self.model = OLA(model_name, model_config)
+         
+        elif model_class == "BaichuanOmni":
+            from models.baichuan_omni import BaichuanOmni  # noqa: PLC0415
+ 
+            self.model = BaichuanOmni(model_name, model_config)
+        elif model_class == "LongVALE":
+            from models.longvale import LongVALE  # noqa: PLC0415
+
+            self.model = LongVALE(model_name, model_config)
+        elif model_class == "OmniVinci":
+            from models.omnivinci import OmniVinci  # noqa: PLC0415
+
+            self.model = OmniVinci(model_name, model_config)
         else:
             raise ValueError(f"Unknown model class: {model_class}")
 
@@ -548,6 +565,8 @@ class InferenceRunner:
                     if pred_key == gt_key:
                         if "error" not in pred:
                             predictions[gt_idx] = pred
+                        elif retry_failed:
+                            failed_indices.add(gt_idx)
                         break
 
         num_done = sum(1 for p in predictions if p is not None)
@@ -692,6 +711,8 @@ class InferenceRunner:
                     if pred_key == gt_key:
                         if "error" not in pred:
                             predictions[gt_idx] = pred
+                        elif retry_failed:
+                            failed_indices.add(gt_idx)
                         break
 
         num_done = sum(1 for p in predictions if p is not None)
@@ -862,6 +883,8 @@ class InferenceRunner:
                         # Only keep if successful
                         if "error" not in pred:
                             predictions[gt_idx] = pred
+                        elif retry_failed:
+                            failed_indices.add(gt_idx)
                         break
 
         # Count how many are done
