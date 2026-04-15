@@ -4,10 +4,61 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SONIC-O1: A SOcial Natural Interaction Corpus for Omnimodal Video Understanding</title>
-  <meta name="description" content="SONIC-O1: A SOcial Natural Interaction Corpus for Omnimodal Video Understanding" />
+  <title>SONIC-O1: A Real-World Benchmark for Evaluating Multimodal Large Language Models on Audio-Video Understanding</title>
+  <meta name="description" content="SONIC-O1: Open-source benchmark for evaluating multimodal AI and large language models on real-world audio-video understanding, temporal localization, and video question answering with comprehensive fairness analysis" />
   <link rel="stylesheet" href="style.css" />
   <script defer src="main.js"></script>
+
+  <!-- Structured Data for SEO -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "ScholarlyArticle",
+    "headline": "SONIC-O1: A Real-World Benchmark for Evaluating Multimodal Large Language Models on Audio-Video Understanding",
+    "description": "Comprehensive benchmark for evaluating multimodal AI on real-world audio-video understanding, temporal localization, and video question answering with fairness analysis",
+    "keywords": ["multimodal AI", "video understanding", "audio-video analysis", "temporal localization", "video question answering", "AI fairness", "large language models", "MLLM evaluation"],
+    "author": [
+      {
+        "@type": "Person",
+        "name": "Ahmed Y. Radwan",
+        "affiliation": {"@type": "Organization", "name": "Vector Institute"}
+      },
+      {
+        "@type": "Person",
+        "name": "Christos Emmanouilidis",
+        "affiliation": {"@type": "Organization", "name": "University of Groningen"}
+      },
+      {
+        "@type": "Person",
+        "name": "Hina Tabassum",
+        "affiliation": {"@type": "Organization", "name": "York University"}
+      },
+      {
+        "@type": "Person",
+        "name": "Deval Pandya",
+        "affiliation": {"@type": "Organization", "name": "Vector Institute"}
+      },
+      {
+        "@type": "Person",
+        "name": "Shaina Raza",
+        "affiliation": {"@type": "Organization", "name": "Vector Institute"}
+      }
+    ],
+    "datePublished": "2026",
+    "publisher": {
+      "@type": "Organization",
+      "name": "Vector Institute"
+    },
+    "about": [
+      "Multimodal AI",
+      "Video Understanding",
+      "Audio-Video Analysis",
+      "Machine Learning Benchmarks",
+      "AI Fairness"
+    ],
+    "url": "https://vectorinstitute.github.io/sonic-o1"
+  }
+  </script>
 </head>
 <body>
   <!-- Sticky top nav -->
@@ -46,7 +97,7 @@
       <div class="hero-content">
         <!-- Hero text - centered -->
         <div class="hero-text">
-          <h1 class="title">SONIC-O1: A SOcial Natural Interaction Corpus for<br/>Omnimodal Video Understanding</h1>
+          <h1 class="title">SONIC-O1: A Real-World Benchmark for Evaluating Multimodal Large Language Models on Audio-Video Understanding</h1>
 
           <p class="authors">
             <a href="https://scholar.google.com/citations?user=Fmhn-MQAAAAJ&hl=en" target="_blank" rel="noreferrer">Ahmed Y. Radwan</a><sup>1</sup>,
@@ -65,7 +116,7 @@
           <!-- Action buttons -->
           <div class="button-row">
             <a class="btn btn-primary" target="_blank" rel="noreferrer"
-               href="https://arxiv.org/abs/XXXX.XXXXX">
+               href="https://arxiv.org/abs/2601.21666">
               <img src="assets/arxiv-logo.png" alt="" class="btn-icon" />
               arXiv
             </a>
@@ -88,9 +139,9 @@
           </div>
 
           <p class="lead">
-            SONIC-O1 is the first open evaluation suite for real-world, long-form audio-video interactions,
+            SONIC-O1 is the first open-source evaluation suite for real-world audio-video understanding across diverse video durations (short, medium, and long-form interactions),
             targeting <strong>global comprehension</strong>, <strong>fine-grained reasoning</strong>, and
-            <strong>temporal grounding</strong> — with demographic metadata for <strong>fairness analysis</strong>.
+            <strong>temporal grounding</strong> — with demographic metadata for comprehensive <strong>fairness analysis</strong> of multimodal AI systems.
           </p>
 
           <!-- Statistics badges -->
@@ -106,7 +157,7 @@
         <!-- Teaser figure - large and prominent -->
         <div class="hero-figure">
           <figure>
-            <img src="assets/Teaser_Figure.png" alt="SONIC-O1 benchmark overview showing three evaluation tasks: summarization, multiple-choice QA, and temporal localization with demographic metadata" />
+            <img src="assets/Teaser_Figure.png" alt="SONIC-O1 multimodal AI benchmark overview showing three video understanding evaluation tasks: video summarization, multiple-choice question answering, and temporal localization with demographic fairness metadata for machine learning model assessment" />
             <figcaption>
               <strong>Figure 1.</strong> SONIC-O1 benchmark overview. Three example tasks: (Top) Video Summarization requiring
               global comprehension; (Middle) Multiple-Choice Question (MCQ) with evidence-grounded reasoning; (Bottom) Temporal Localization
@@ -125,30 +176,28 @@
       <h2>Abstract</h2>
       <div class="abstract-box">
         <p>
-          Real-world deployment of multimodal video models requires understanding not just <em>what</em> happens but <em>when</em>,
-          and performing reliably across diverse user populations—yet current benchmarks focus on short clips, rarely test temporal
-          grounding, and omit demographic fairness evaluation.
+          Multimodal Large Language Models (MLLMs) have become a major focus in recent AI research. However, most existing 
+          work still centers on static image understanding, while their ability to process sequential audio-video data remains 
+          underexplored. This gap highlights the need for a high-quality benchmark to systematically evaluate MLLM performance 
+          in dynamic, temporally grounded settings.
         </p>
         <p>
-          We introduce <strong>SONIC-O1</strong>, a benchmark of <strong>231 videos</strong> (≈60 hours) spanning
-          <strong>13 conversational domains</strong> (medical consultations, job interviews, courtroom proceedings) with
-          <strong>4,958 human-verified annotations</strong> and demographic metadata (race/gender/age). SONIC-O1 evaluates
-          three complementary capabilities: <strong>summarization</strong> (global comprehension), <strong>multiple-choice QA</strong>
-          (fine-grained reasoning), and <strong>temporal localization</strong> (identifying when events occur).
+          We introduce <strong>SONIC-O1</strong>, a comprehensive, fully human-verified benchmark spanning <strong>13</strong> 
+          real-world conversational domains with <strong>4,958</strong> annotations and demographic metadata. SONIC-O1 evaluates 
+          MLLMs on key tasks, including open-ended summarization, multiple-choice question answering, and temporal localization 
+          with supporting rationales (reasoning).
         </p>
         <p>
-          Results reveal a disconnect: Gemini 3.0 Pro achieves <strong>96.4% MCQ accuracy</strong> and generates high-quality
-          rationales, yet attains only <strong>25.3% recall at IoU≥0.5</strong> for temporal localization—meaning it can identify
-          and explain events but cannot reliably pinpoint when they occur. Performance further degrades on demographic slices:
-          Black and Indigenous groups show systematically lower scores across most models and tasks.
+          Experiments across both commercial closed-source and open-source models reveal important limitations. While the gap 
+          in MCQ accuracy is relatively small, we observe a substantial <strong>22.9%</strong> performance difference in temporal 
+          localization between the best commercial and best open-source systems. Performance further degrades across demographic 
+          groups, indicating persistent disparities in model behavior.
         </p>
         <p>
-          SONIC-O1 provides an open evaluation suite targeting temporally grounded, socially robust multimodal understanding
-          for high-stakes applications.
+          Overall, SONIC-O1 provides an open evaluation suite for temporally grounded and socially robust multimodal understanding.
         </p>
       </div>
     </section>
-
     <!-- OVERVIEW -->
     <section id="overview" class="section">
       <h2>Overview</h2>
@@ -175,15 +224,15 @@
         <div>
           <h3 class="h3">What SONIC-O1 Evaluates</h3>
           <ul class="bullets">
-            <li><strong>Global comprehension</strong> — Summarization of long-form interactions</li>
-            <li><strong>Fine-grained reasoning</strong> — Multiple-choice QA with evidence grounding</li>
-            <li><strong>Temporal grounding</strong> — Event localization with precise timestamps</li>
-            <li><strong>Demographic robustness</strong> — Performance across race, age, and gender slices</li>
+            <li><strong>Global comprehension</strong> — Video summarization of interactions across diverse durations (short, medium, long-form)</li>
+            <li><strong>Fine-grained reasoning</strong> — Multiple-choice question answering with evidence grounding</li>
+            <li><strong>Temporal grounding</strong> — Event localization with precise timestamps in video timelines</li>
+            <li><strong>Demographic robustness</strong> — AI fairness performance across race, age, and gender demographics</li>
           </ul>
           <p class="muted">
-            Unlike prior benchmarks that focus on short clips or single modalities, SONIC-O1 evaluates
-            <strong>omnimodal understanding</strong> (audio + video) on realistic, long-duration interactions
-            from high-stakes domains.
+            Unlike prior AI benchmarks that focus on short clips or single modalities, SONIC-O1 evaluates
+            <strong>omnimodal understanding</strong> (audio + video) and video question answering capabilities on realistic interactions across diverse durations (short, medium, long-form)
+            from high-stakes conversational domains.
           </p>
         </div>
         <div class="card">
@@ -201,7 +250,7 @@
               <img src="assets/GitHub_Logo.png" alt="" class="link-icon" />
               GitHub Repository
             </a>
-            <a target="_blank" rel="noreferrer" href="https://arxiv.org/abs/XXXX.XXXXX">
+            <a target="_blank" rel="noreferrer" href="https://arxiv.org/abs/2601.21666">
               <img src="assets/arxiv-logo.png" alt="" class="link-icon" />
               arXiv Paper
             </a>
@@ -216,7 +265,7 @@
 
       <div class="two-col">
         <figure class="figure">
-          <img src="assets/Sunburst_Topics.png" alt="Sunburst chart showing the distribution of 13 conversational topics across 5 domains" />
+          <img src="assets/Sunburst_Topics.png" alt="Sunburst visualization chart displaying distribution of 13 conversational video topics across 5 real-world domains for multimodal AI training and evaluation" />
           <figcaption>
             <strong>Figure 2.</strong> Video categories. SONIC-O1 covers 5 key domains and 13 sub-class video types spanning
             professional, educational, legal/civic, service-oriented, and community/public health interactions.
@@ -269,14 +318,14 @@
 
       <div class="figure-grid-2">
         <figure class="figure">
-          <img src="assets/plot_duration_category_by_topic_videos.png" alt="Bar chart showing video duration distribution across topics with short, medium, and long videos" />
+          <img src="assets/plot_duration_category_by_topic_videos.png" alt="Bar chart visualization showing video duration distribution across conversational topics with short, medium, and long-form videos for comprehensive AI model testing" />
           <figcaption>
             <strong>Figure 3.</strong> Video duration distribution by topic. SONIC-O1 spans short (&lt;5 min), medium (5-20 min),
             and long (20-60 min) videos across all conversational domains.
           </figcaption>
         </figure>
         <figure class="figure">
-          <img src="assets/plot_category_task_distribution_topics.png" alt="Bar chart showing distribution of summarization, MCQ, and temporal localization questions across topics" />
+          <img src="assets/plot_category_task_distribution_topics.png" alt="Bar chart showing distribution of video summarization, multiple-choice QA, and temporal localization questions across conversational topics for machine learning model benchmarking" />
           <figcaption>
             <strong>Figure 4.</strong> Question type distribution over topics. Each domain includes annotations for all three
             evaluation tasks: summarization, multiple-choice QA, and temporal localization.
@@ -295,8 +344,8 @@
           <li><strong>Age:</strong> 18-24, 25-39, 40+</li>
         </ul>
         <p class="muted small">
-          All demographic labels are annotated from observable characteristics via AI-assisted human review,
-          enabling systematic fairness evaluation across demographic groups.
+          All demographic labels are annotated from observable characteristics via AI-assisted human verification,
+          enabling systematic fairness evaluation and bias detection in multimodal AI systems across demographic groups.
         </p>
       </div>
     </section>
@@ -404,7 +453,7 @@
               <td class="center">—</td>
               <td class="center"><strong>7.07</strong></td>
               <td class="center"><strong>96.4</strong></td>
-              <td class="center"><strong>25.3</strong></td>
+              <td class="center"><strong>25.4</strong></td>
             </tr>
             <tr>
               <td><a target="_blank" rel="noreferrer" href="https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct">Qwen3-Omni</a></td>
@@ -414,7 +463,7 @@
               <td class="center">2.8</td>
             </tr>
             <tr>
-              <td><a target="_blank" rel="noreferrer" href="https://arxiv.org/abs/2511.12609">UniMoE-2.0-Omni</a></td>
+              <td><a target="_blank" rel="noreferrer" href="https://arxiv.org/abs/2511.12609">UniMoE-2.0</a></td>
               <td class="center">33B</td>
               <td class="center">4.71</td>
               <td class="center">88.2</td>
@@ -431,11 +480,11 @@
               <td><a target="_blank" rel="noreferrer" href="https://github.com/VITA-MLLM/VITA">VITA 1.5</a></td>
               <td class="center">8B</td>
               <td class="center">2.77</td>
-              <td class="center">81.5</td>
-              <td class="center">1.1</td>
+              <td class="center">81.6</td>
+              <td class="center">1.2</td>
             </tr>
             <tr>
-              <td><a target="_blank" rel="noreferrer" href="https://huggingface.co/DAMO-NLP-SG/VideoLLaMA2.1-7B-AV">VideoLLaMA2.1-7B-AV</a></td>
+              <td><a target="_blank" rel="noreferrer" href="https://huggingface.co/DAMO-NLP-SG/VideoLLaMA2.1-7B-AV">VideoLLaMA2</a></td>
               <td class="center">7B</td>
               <td class="center">1.53</td>
               <td class="center">54.3</td>
@@ -457,12 +506,12 @@
         <ul class="bullets">
           <li>
             <strong>Accuracy-temporal grounding disconnect:</strong> Gemini 3.0 Pro achieves 96.4% MCQ accuracy
-            but only 25.3% R@0.5 for temporal localization, revealing that models can identify <em>what</em> happens
+            but only 25.4% R@0.5 for temporal localization, revealing that models can identify <em>what</em> happens
             but struggle to pinpoint <em>when</em>.
           </li>
           <li>
-            <strong>Temporal localization is the hardest task:</strong> Open-source models achieve &lt;3% R@0.5,
-            with a 22% performance gap to Gemini 3.0 Pro, indicating fundamental limitations in temporal reasoning.
+            <strong>Temporal localization is the hardest task for video understanding AI:</strong> Open-source models achieve &lt;3% R@0.5,
+            with a 22% performance gap to Gemini 3.0 Pro, indicating fundamental limitations in temporal reasoning and event timing prediction.
           </li>
           <li>
             <strong>Model scale matters:</strong> Larger models (Qwen3-Omni 30B, UniMoE-2.0 33B) significantly
@@ -486,9 +535,9 @@
       <div class="two-col-figure">
         <div class="col-text">
           <p class="section-intro">
-            SONIC-O1 spans <strong>13 conversational domains</strong> across professional, civic, service-oriented,
-            and community interactions. Performance varies significantly across topics, revealing domain-specific
-            strengths and weaknesses.
+            SONIC-O1 spans <strong>13 real-world conversational domains</strong> across professional, civic, service-oriented,
+            and community interactions with diverse video durations. Multimodal AI performance varies significantly across topics, revealing domain-specific
+            strengths and weaknesses in audio-video understanding capabilities.
           </p>
 
           <h3 class="h3">Key Observations</h3>
@@ -514,7 +563,7 @@
         </div>
 
         <figure class="figure col-figure">
-          <img src="assets/spider_chart.png" alt="Radar chart showing per-topic performance across 13 conversational domains for 6 models" />
+          <img src="assets/spider_chart.png" alt="Radar chart visualization comparing multimodal AI model performance across 13 conversational domains for video understanding and audio-video analysis benchmarking" />
           <figcaption>
             <strong>Figure 6.</strong> Performance comparison across 13 conversational domains. We evaluate six MLLMs
             on video summarization using LLM-judge scores (0-10 scale, higher is better). Gemini 3.0 Pro consistently
@@ -529,9 +578,9 @@
     <section id="fairness" class="section">
       <h2>Fairness Analysis</h2>
       <p class="section-intro">
-        SONIC-O1 includes demographic annotations (race, gender, age) to enable systematic fairness evaluation.
+        SONIC-O1 includes comprehensive demographic annotations (race, gender, age) to enable systematic AI fairness evaluation and bias detection in video understanding models.
         Results reveal <strong>significant performance disparities</strong> across demographic groups, with
-        Black and Indigenous participants showing consistently lower scores.
+        Black and Indigenous participants showing consistently lower scores across multimodal AI systems.
       </p>
 
       <h3 class="h3">Summarization Fairness (LLM-as-Judge Score, 0–10)</h3>
@@ -712,17 +761,17 @@
           <tbody>
             <tr class="highlight">
               <td>Gemini 3.0 Pro †</td>
-              <td class="center">22.9</td>
-              <td class="center worst">19.3</td>
-              <td class="center">30.6</td>
-              <td class="center">23.5</td>
+              <td class="center">23.0</td>
+              <td class="center worst">19.5</td>
+              <td class="center">30.7</td>
+              <td class="center">23.8</td>
               <td class="center best">40.9</td>
-              <td class="center">20.4</td>
-              <td class="center">21.6</td>
+              <td class="center">21.1</td>
+              <td class="center">21.4</td>
             </tr>
             <tr>
               <td>Qwen3-Omni</td>
-              <td class="center">2.7</td>
+              <td class="center">2.6</td>
               <td class="center">1.8</td>
               <td class="center best">2.9</td>
               <td class="center">2.3</td>
@@ -731,7 +780,7 @@
               <td class="center">2.9</td>
             </tr>
             <tr>
-              <td>UniMoE-2.0-Omni</td>
+              <td>UniMoE-2.0</td>
               <td class="center">1.2</td>
               <td class="center">0.6</td>
               <td class="center">0.6</td>
@@ -743,7 +792,7 @@
             <tr>
               <td>MiniCPM-o-2.6</td>
               <td class="center">0.9</td>
-              <td class="center worst">0.3</td>
+              <td class="center">0.3</td>
               <td class="center">0.8</td>
               <td class="center">0.2</td>
               <td class="center worst">0.0</td>
@@ -752,13 +801,13 @@
             </tr>
             <tr>
               <td>VITA 1.5</td>
-              <td class="center">1.3</td>
+              <td class="center">1.4</td>
               <td class="center best">1.4</td>
               <td class="center best">1.4</td>
-              <td class="center worst">0.7</td>
+              <td class="center worst">0.8</td>
               <td class="center">1.3</td>
               <td class="center">1.2</td>
-              <td class="center">0.7</td>
+              <td class="center">0.6</td>
             </tr>
             <tr>
               <td>VideoLLaMA2</td>
@@ -773,7 +822,6 @@
           </tbody>
         </table>
       </div>
-
       <p class="table-note">
         <strong>†</strong> Denotes closed-source model.
         <span class="best">■</span> Best performing group per model.
@@ -807,55 +855,57 @@
     <!-- CONCLUSION -->
     <section id="conclusion" class="section section-conclusion">
       <h2>Conclusion</h2>
-
       <div class="conclusion-content">
         <p>
-          SONIC-O1 reveals that state-of-the-art multimodal models still face significant trade-offs
-          between accuracy and human-aligned behavior. While closed-source models generally perform
-          better overall, they exhibit weaknesses in temporal grounding. Open-source models show promise
-          in specific areas but lack consistency.
+          We introduced SONIC-O1, a comprehensive real-world audio-video understanding benchmark for evaluating Multimodal Large Language Models through the lens
+          of fairness and AI safety. SONIC-O1 includes human-verified annotations across diverse video durations and three evaluation tasks:
+          video summarization, multiple-choice question answering, and temporal localization with reasonings, to assess both semantic
+          understanding and precise temporal grounding capabilities.
         </p>
-
         <div class="highlight-box">
           <div class="highlight-icon">🔍</div>
           <div class="highlight-content">
-            <h3>Key Finding: The Accuracy-Temporal Grounding Disconnect</h3>
+            <h3>Key Finding: Audio Dominates, Temporal Grounding Remains Hard</h3>
             <p>
-              Gemini 3.0 Pro achieves <strong>96.4% MCQ accuracy</strong> and generates high-quality
-              rationales, yet attains only <strong>25.3% recall at IoU≥0.5</strong> for temporal
-              localization—meaning it can <strong>identify and explain events but cannot reliably
-              pinpoint when they occur</strong>.
+              Our findings show that <strong>audio or transcripts often provide the strongest cues for 
+              comprehension</strong>, while <strong>temporal localization remains the most challenging 
+              setting</strong>. Gemini 3.0 Pro achieves <strong>96.4% MCQ accuracy</strong> and generates 
+              high-quality rationales, yet attains only <strong>25.4% recall at IoU≥0.5</strong> for 
+              temporal localization—a <strong>22.9% performance gap</strong> separates the best commercial 
+              and best open-source systems on this task.
             </p>
           </div>
         </div>
-
         <p>
-          Performance further degrades on demographic slices: <strong>Black and Indigenous groups show
-          systematically lower scores</strong> across most models and tasks. Temporal localization exhibits
-          the most severe disparities, with some models collapsing to 0.0% R@0.5 for Indigenous participants
-          while maintaining competitive performance on other groups.
+          We also observe <strong>persistent demographic disparities across models</strong>, emphasizing 
+          the need for more equitable multimodal evaluation. Performance degrades across demographic groups, 
+          with <strong>Black and Indigenous participants showing systematically lower scores</strong> across 
+          most models and tasks. Temporal localization exhibits the most severe disparities, with some models 
+          collapsing to 0.0% R@0.5 for Indigenous participants while maintaining 40.9% for the same group 
+          with Gemini.
         </p>
-
         <p>
-          These findings expose fundamental limitations in temporal coherence and cross-modal reasoning that
-          cannot be addressed through scaling alone. SONIC-O1 highlights the need for:
+          Overall, SONIC-O1 offers a practical testbed for measuring robustness and fairness in realistic 
+          audio-video scenarios, and we hope it will guide future work on:
         </p>
-
         <ul class="bullets">
-          <li>Architectural innovations for long-form temporal grounding</li>
-          <li>Fairness-aware data collection and training procedures</li>
-          <li>Multi-objective optimization combining accuracy, temporal precision, and demographic robustness</li>
+          <li><strong>Stronger temporal reasoning</strong> beyond frame-level understanding</li>
+          <li><strong>Broader benchmark coverage</strong> across languages, domains, and modalities</li>
+          <li><strong>Fairness-aware training</strong> to address demographic performance gaps</li>
+          <li><strong>Native audio-video integration</strong> rather than treating audio as optional</li>
         </ul>
-
         <p class="conclusion-footer">
-          SONIC-O1 provides an open evaluation suite targeting <strong>temporally grounded, socially robust
-          multimodal understanding</strong> for high-stakes applications. For additional details about
-          evaluation methodology and experimental results, please refer to our paper.
+          SONIC-O1 provides an open-source evaluation suite and benchmark targeting <strong>temporally grounded, socially robust
+          multimodal understanding</strong> for high-stakes real-world applications. We release the full evaluation
+          suite (dataset with diverse video durations, evaluation scripts, interactive leaderboard) under a research license for reproducibility and community
+          development in audio-video AI research.
         </p>
+      </div>
+    </section>
 
         <div class="button-row">
           <a class="btn btn-primary" target="_blank" rel="noreferrer"
-             href="https://arxiv.org/abs/XXXX.XXXXX">
+             href="https://arxiv.org/abs/2601.21666">
             Read the Paper →
           </a>
         </div>
@@ -866,8 +916,8 @@
     <section id="quickstart" class="section">
       <h2>Quick Start</h2>
       <p class="section-intro">
-        The SONIC-O1 repository provides an end-to-end pipeline for data curation, annotation generation,
-        and model evaluation. Dataset and annotations are hosted on Hugging Face.
+        The SONIC-O1 open-source repository provides an end-to-end pipeline for video data curation, annotation generation,
+        and multimodal AI model evaluation. Dataset and annotations are hosted on Hugging Face for easy access.
       </p>
 
       <div class="code-section">
@@ -879,17 +929,17 @@
             </svg>
           </button>
           <pre id="code-install"><code># Clone repository (note: nested structure)
-git clone https://github.com/VectorInstitute/sonic-o1.git
-cd sonic-o1/sonic-o1
+            git clone https://github.com/VectorInstitute/sonic-o1.git
+            cd sonic-o1/sonic-o1
 
-# Download dataset + annotations from Hugging Face
-pip install huggingface_hub
-huggingface-cli download vector-institute/sonic-o1 --repo-type dataset --local-dir ./
+            # Download dataset + annotations from Hugging Face
+            pip install huggingface_hub
+            huggingface-cli download vector-institute/sonic-o1 --repo-type dataset --local-dir ./
 
-# Setup Python environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements_venv.txt</code></pre>
+            # Setup Python environment
+            python -m venv .venv
+            source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+            pip install -r requirements_venv.txt</code></pre>
         </div>
       </div>
 
@@ -903,16 +953,16 @@ pip install -r requirements_venv.txt</code></pre>
           </button>
           <pre id="code-load"><code>from datasets import load_dataset
 
-# Load individual tasks
-ds_summ = load_dataset("vector-institute/sonic-o1", "task1_summarization")
-ds_mcq = load_dataset("vector-institute/sonic-o1", "task2_mcq")
-ds_temporal = load_dataset("vector-institute/sonic-o1", "task3_temporal_localization")
+            # Load individual tasks
+            ds_summ = load_dataset("vector-institute/sonic-o1", "task1_summarization")
+            ds_mcq = load_dataset("vector-institute/sonic-o1", "task2_mcq")
+            ds_temporal = load_dataset("vector-institute/sonic-o1", "task3_temporal_localization")
 
-# Each sample includes:
-# - video metadata (ID, topic, duration, demographics)
-# - question/prompt
-# - ground truth answer
-# - rationale (for MCQ and temporal tasks)</code></pre>
+            # Each sample includes:
+            # - video metadata (ID, topic, duration, demographics)
+            # - question/prompt
+            # - ground truth answer
+            # - rationale (for MCQ and temporal tasks)</code></pre>
         </div>
       </div>
 
@@ -950,12 +1000,12 @@ ds_temporal = load_dataset("vector-institute/sonic-o1", "task3_temporal_localiza
           Copy BibTeX
         </button>
 
-        <pre class="bibtex" id="bibtexBlock"><code>@article{sonic-o1-2025,
-          title   = {SONIC-O1: A SOcial Natural Interaction Corpus for Omnimodal Video Understanding},
-          journal = {arXiv preprint arXiv:XXXX.XXXXX},
-          year    = {2025},
-          url     = {https://huggingface.co/datasets/vector-institute/sonic-o1}
-        }</code></pre>
+        <pre class="bibtex" id="bibtexBlock"><code>@article{radwan2026sonico1,
+          title={SONIC-O1: A Real-World Benchmark for Evaluating Multimodal Large Language Models on Audio-Video Understanding},
+          author={Radwan, Ahmed Y and Emmanouilidis, Christos and Tabassum, Hina and Pandya, Deval and Raza, Shaina},
+          journal={arXiv preprint arXiv:2601.21666},
+          year={2026}
+        } </code></pre>
 
         <p class="copy-status" id="copyStatus" role="status" aria-live="polite"></p>
       </div>
@@ -1004,13 +1054,13 @@ ds_temporal = load_dataset("vector-institute/sonic-o1", "task3_temporal_localiza
             <li><a href="https://huggingface.co/datasets/vector-institute/sonic-o1" target="_blank" rel="noreferrer">Dataset (Hugging Face)</a></li>
             <li><a href="https://huggingface.co/spaces/vector-institute/sonic-o1-leaderboard" target="_blank" rel="noreferrer">Leaderboard</a></li>
             <li><a href="https://github.com/VectorInstitute/sonic-o1" target="_blank" rel="noreferrer">GitHub Repository</a></li>
-            <li><a href="https://arxiv.org/abs/XXXX.XXXXX" target="_blank" rel="noreferrer">arXiv Paper</a></li>
+            <li><a href="https://arxiv.org/abs/2601.21666" target="_blank" rel="noreferrer">arXiv Paper</a></li>
           </ul>
         </div>
       </div>
 
       <div class="footer-bottom">
-        <p>© 2025 Vector Institute — SONIC-O1</p>
+        <p>© 2026 Vector Institute — SONIC-O1</p>
         <p><a href="#top">Back to top ↑</a></p>
       </div>
     </footer>
