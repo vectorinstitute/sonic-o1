@@ -135,6 +135,27 @@ class VITA(BaseModel):
             logger.error(f"✗ Conversion failed: {e.stderr}")
             raise RuntimeError(f"Failed to convert AV1 video: {e.stderr}")
 
+    def _ensure_wav(self, audio_path: Path) -> Path:
+        """Convert audio to WAV if needed (soundfile only supports wav/flac/ogg)."""
+        audio_path = Path(audio_path)
+        if audio_path.suffix.lower() == ".wav":
+            return audio_path
+        wav_path = audio_path.with_suffix(".wav")
+        if wav_path.exists():
+            return wav_path
+        import subprocess
+        logger.info(f"Converting {audio_path.suffix} to WAV: {audio_path.name}")
+        try:
+            subprocess.run(
+                ["ffmpeg", "-i", str(audio_path), "-ar", "16000", "-ac", "1", "-y", str(wav_path)],
+                check=True, capture_output=True, text=True
+            )
+            logger.info(f"✓ Audio converted: {wav_path.name}")
+            return wav_path
+        except subprocess.CalledProcessError as e:
+            logger.error(f"✗ Audio conversion failed: {e.stderr}")
+            return audio_path  # return original, let it fail naturally
+
     def _check_video_compatibility(self, video_path: Path) -> Optional[Path]:
         """
         Check if video is compatible with Decord.
@@ -377,8 +398,9 @@ class VITA(BaseModel):
             if has_audio:
                 logger.info(f"Loading audio: {audio}")
                 try:
+                    audio_wav = self._ensure_wav(Path(audio))
                     audio_features, audio_for_llm_lens = self.audio_processor.process(
-                        str(audio)
+                        str(audio_wav)
                     )
                     logger.info(f"Original audio: {audio_features.shape[0]} frames")
 
@@ -440,8 +462,6 @@ class VITA(BaseModel):
             # Process video (rest of your code remains the same)
             has_video = frames is not None and os.path.exists(str(frames))
             if has_video:
-                from pathlib import Path
-
                 video_path = Path(frames)
 
                 compatible_video_path = self._check_video_compatibility(video_path)

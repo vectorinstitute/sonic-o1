@@ -6,6 +6,8 @@ Author: SONIC-O1 Team
 
 import logging
 import math
+import os
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -163,8 +165,18 @@ class MiniCPM(BaseModel):
             f"Extracting frames and audio at 1 fps, then subsampling to {target_num_frames} frames..."
         )
 
-        # Load audio with librosa
-        audio_np, sr = librosa.load(audio_path, sr=self.audio_sr, mono=self.audio_mono)
+        try:
+            audio_np, sr = librosa.load(audio_path, sr=self.audio_sr, mono=self.audio_mono)
+            if len(audio_np) == 0:
+                raise ValueError("Empty audio")
+        except Exception:
+            logger.warning(f"Audio unloadable or empty ({Path(audio_path).name}), substituting silence.")
+            _tmp_container = av.open(video_path)
+            _tmp_stream = _tmp_container.streams.video[0]
+            _seg_duration = int(_tmp_stream.frames / float(_tmp_stream.average_rate))
+            _tmp_container.close()
+            sr = self.audio_sr
+            audio_np = np.zeros(_seg_duration * sr, dtype=np.float32)
         audio_duration = len(audio_np) / sr
 
         # Load video with PyAV
@@ -222,9 +234,10 @@ class MiniCPM(BaseModel):
                     # Get 1 second of audio (working example logic)
                     audio_chunk = audio_np[sr * i : sr * (i + 1)]
 
-                    # Verify audio chunk
-                    if len(audio_chunk) == 0:
-                        logger.warning(f"  Empty audio chunk at unit {i}, skipping")
+
+                    if len(audio_chunk) < sr:
+                        audio_chunk = np.pad(audio_chunk, (0, sr - len(audio_chunk)))
+
                         continue
 
                     # Add to lists

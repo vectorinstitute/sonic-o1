@@ -12,10 +12,24 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 
 logger = logging.getLogger(__name__)
+
+
+def _default_temp_segment_dir(task_type: str, kind: str) -> Path:
+    """
+    Project-local temp under sonic-o1/.tmp_video_segments/ (removed after use via cleanup_segments).
+
+    `kind` is "video" or "audio" so parallel calls never collide.
+    """
+    # .../04_vqa_generation/utils/video_segmenter.py -> sonic-o1
+    sonic_o1 = Path(__file__).resolve().parent.parent.parent
+    root = sonic_o1 / ".tmp_video_segments"
+    sub = root / f"{task_type}_{kind}_{time.time_ns()}"
+    sub.mkdir(parents=True, exist_ok=True)
+    return sub
 
 
 class VideoSegmenter:
@@ -230,13 +244,7 @@ class VideoSegmenter:
             ]
 
         if output_dir is None:
-            output_dir = (
-                Path.home()
-                / "scratch"
-                / "video_segments"
-                / f"{task_type}_{int(time.time())}"
-            )
-            output_dir.mkdir(parents=True, exist_ok=True)
+            output_dir = _default_temp_segment_dir(task_type, "video")
             temp_dir = output_dir
         else:
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -393,13 +401,7 @@ class VideoSegmenter:
             ]
 
         if output_dir is None:
-            output_dir = (
-                Path.home()
-                / "scratch"
-                / "audio_segments"
-                / f"{task_type}_{int(time.time())}"
-            )
-            output_dir.mkdir(parents=True, exist_ok=True)
+            output_dir = _default_temp_segment_dir(task_type, "audio")
             temp_dir = output_dir
         else:
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -542,18 +544,17 @@ class VideoSegmenter:
         segments : list of dict
             List of segment dicts with segment_path and is_temp.
         """
+        seen: Set[Path] = set()
         for seg in segments:
-            if seg.get("is_temp", False):
-                try:
-                    seg_path = seg["segment_path"]
-                    if seg_path.exists():
-                        temp_dir = seg_path.parent
-                        if temp_dir.exists() and "segments" in temp_dir.name:
-                            shutil.rmtree(temp_dir)
-                            logger.info(
-                                "Cleaned up temp directory: %s",
-                                temp_dir,
-                            )
-                            break
-                except Exception as e:
-                    logger.warning(f"Failed to cleanup segment: {e}")
+            if not seg.get("is_temp", False):
+                continue
+            try:
+                seg_path = Path(seg["segment_path"])
+                temp_dir = seg_path.parent
+                if temp_dir in seen or not temp_dir.exists():
+                    continue
+                seen.add(temp_dir)
+                shutil.rmtree(temp_dir)
+                logger.info("Cleaned up temp directory: %s", temp_dir)
+            except Exception as e:
+                logger.warning("Failed to cleanup segment: %s", e)
