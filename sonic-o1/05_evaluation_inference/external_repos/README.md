@@ -19,6 +19,21 @@ This directory for cloning open-source models
 - **License:** BSD 3-Clause (see License.txt)
 - **Credit:** Original VITA-MLLM team
 
+### Baichuan-Omni-1.5
+- **Original:** https://github.com/baichuan-inc/Baichuan-Omni-1.5
+- **License:** Apache 2.0 (see original repository)
+- **Credit:** Original authors from baichuan-inc
+
+### Ola
+- **Original:** https://github.com/ola-omni/ola
+- **License:** Apache 2.0 (see original repository)
+- **Credit:** Original authors from ola-omni
+
+### OmniVinci
+- **Original:** https://github.com/NVlabs/OmniVinci
+- **License:** NVIDIA Source Code License (see original repository)
+- **Credit:** Original authors from NVlabs
+
 ## Usage
 1. Clone the original repos
 2. Some of those models have problems in distribute GPU inference, make sure to apply fixes
