@@ -268,3 +268,64 @@ models:
       temperature: 0.7
       top_p: 0.95
       max_new_tokens: 8192
+
+  - name: "ola"
+    class: "OLA"
+    model_path: "THUdyh/Ola-7b"
+    ola_repo_path: "05_evaluation_inference/external_repos/Ola"
+    supports_video: true
+    supports_audio: true
+    audio_format: "m4a"
+    device: "cuda"
+    dtype: "bfloat16"
+    max_frames: 256
+    min_frames: 32
+    generation_config:
+      temperature: 0.7
+      top_p: 0.95
+      num_beams: 1
+      max_new_tokens: 8192
+
+  - name: "baichuan_omni"
+    class: "BaichuanOmni"
+    model_path: "05_evaluation_inference/external_repos/Baichuan-Omni-1.5/baichuan-omni/model"
+    baichuan_repo_path: "05_evaluation_inference/external_repos/Baichuan-Omni-1.5"
+    cache_dir: "sonic-o1/.cache"
+
+    supports_video: true
+    supports_audio: true
+    audio_format: "m4a"
+
+    max_frames: 32
+    min_frames: 4
+    retry_override:
+      frame_count_fallback: [32, 16, 8, 4]
+      audio_chunks_fallback: [16, 8, 4, 2]
+
+    generation_config:
+      temperature: 0.7
+      top_p: 0.95
+      num_beams: 1
+      max_new_tokens: 8192
+
+  - name: "omnivinci"
+    class: "OmniVinci"
+    model_path: "05_evaluation_inference/external_repos/omnivinci"
+
+    supports_video: true
+    supports_audio: true
+    audio_format: "m4a"
+
+    # Device configuration
+    device_map: "auto"
+    torch_dtype: "float16"
+
+    # Frame config — audio has no external control (handled internally)
+    max_frames: 256
+    min_frames: 32
+
+    generation_config:
+      temperature: 0.7
+      top_p: 0.95
+      max_new_tokens: 8192
+
