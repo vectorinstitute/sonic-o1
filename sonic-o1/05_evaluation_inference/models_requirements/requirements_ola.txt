@@ -69,7 +69,6 @@ nvidia-ml-py==13.595.45
 nvidia-nccl-cu12==2.18.1
 nvidia-nvjitlink-cu12==12.9.86
 nvidia-nvtx-cu12==12.1.105
--e file:///fs02/projects/aixpert/users/ahmadradw/VideoQA-Agentic/sonic-o1/05_evaluation_inference/external_repos/Ola
 omegaconf==2.0.6
 openai-whisper==20250625
 orjson==3.11.7
