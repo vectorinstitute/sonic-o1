@@ -125,7 +125,6 @@ nvidia-nvshmem-cu13==3.4.5
 nvidia-nvtx==13.0.85
 nvidia-nvtx-cu12==12.1.105
 omegaconf==2.3.0
--e file:///fs02/projects/aixpert/users/ahmadradw/VideoQA-Agentic/sonic-o1/05_evaluation_inference/external_repos/omnivinci
 openai==1.8.0
 openai-whisper==20250625
 opencv-python-headless==4.8.0.76
