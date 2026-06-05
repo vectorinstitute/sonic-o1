@@ -1,5 +1,5 @@
 /**
- * SONIC-O1 Blog — Main Entry Point
+ * SONIC-O1 Blog: Main Entry Point
  */
 
 // Initialize when DOM is ready
@@ -41,7 +41,7 @@ function initScrollSpy() {
     });
     if (active) {
       active.link.style.fontWeight = '700';
-      active.link.style.color = '#E10098';
+      active.link.style.color = '#EB088A';
     }
   }
 

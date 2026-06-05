@@ -8,7 +8,7 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: transparent;
     padding: 16px;
-    color: #1e293b;
+    color: #000000;
   }
   .grid {
     display: grid;
@@ -18,15 +18,15 @@
     margin: 0 auto;
   }
   .card {
-    border: 1px solid #e2e8f0;
+    border: 1px solid #e4e4e0;
     border-radius: 8px;
     padding: 16px;
-    background: #fafbfc;
+    background: #ffffff;
   }
   .card h4 {
     font-size: 13px;
     font-weight: 600;
-    color: #1a1a1a;
+    color: #000000;
     margin-bottom: 12px;
     text-align: center;
   }
@@ -39,14 +39,14 @@
   .bar-label {
     font-size: 10.5px;
     font-weight: 500;
-    color: #475569;
+    color: #3c3c3c;
     min-width: 90px;
     text-align: right;
   }
   .bar-track {
     flex: 1;
     height: 22px;
-    background: #f1f5f9;
+    background: #f5f5f5;
     border-radius: 4px;
     overflow: hidden;
     position: relative;
@@ -64,25 +64,25 @@
     transition: width 0.5s ease;
     min-width: 30px;
   }
-  .bar-fill.video { background: #1a1a1a; }
-  .bar-fill.audio { background: #E10098; }
-  .bar-fill.text  { background: #b3007a; }
+  .bar-fill.video { background: #3c3c3c; }
+  .bar-fill.audio { background: #EB088A; }
+  .bar-fill.text  { background: #c9076f; }
   .delta {
     font-size: 10px;
     font-weight: 700;
     min-width: 50px;
     text-align: left;
   }
-  .delta.positive { color: #16a34a; }
-  .delta.negative { color: #dc2626; }
-  .delta.neutral  { color: #64748b; }
+  .delta.positive { color: #2d6a3f; }
+  .delta.negative { color: #9f2f2f; }
+  .delta.neutral  { color: #3c3c3c; }
   .legend-row {
     display: flex;
     justify-content: center;
     gap: 18px;
     margin-bottom: 16px;
     font-size: 11px;
-    color: #475569;
+    color: #3c3c3c;
   }
   .legend-row span {
     display: flex;
@@ -106,9 +106,9 @@
 <body>
 
 <div class="legend-row">
-  <span><span class="swatch" style="background:#1a1a1a"></span> Video Only</span>
-  <span><span class="swatch" style="background:#E10098"></span> Video + Audio</span>
-  <span><span class="swatch" style="background:#b3007a"></span> Video + Text (GPT-4o)</span>
+  <span><span class="swatch" style="background:#3c3c3c"></span> Video Only</span>
+  <span><span class="swatch" style="background:#EB088A"></span> Video + Audio</span>
+  <span><span class="swatch" style="background:#c9076f"></span> Video + Text (GPT-4o)</span>
 </div>
 
 <div class="grid">
@@ -133,23 +133,23 @@
 const ablation = [
   {
     model: 'Qwen3-Omni',
-    summ: { video: 4.60, audio: 6.82 },
-    mcq:  { video: 86.1, audio: 96.8 },
+    summ: { video: 4.46, audio: 6.84 },
+    mcq:  { video: 61.6, audio: 71.9 },
   },
   {
     model: 'UniMoE-2.0',
-    summ: { video: 3.96, audio: 5.86 },
-    mcq:  { video: 83.9, audio: 92.7 },
+    summ: { video: 3.77, audio: 5.65 },
+    mcq:  { video: 46.4, audio: 58.3 },
   },
   {
     model: 'VideoLLaMA2',
-    summ: { video: 2.02, audio: 1.88 },
-    mcq:  { video: 54.6, audio: 57.1 },
+    summ: { video: 1.91, audio: 1.78 },
+    mcq:  { video: 28.6, audio: 28.6 },
   },
   {
     model: 'GPT-4o',
-    summ: { video: 5.02, text: 5.82 },
-    mcq:  { video: 91.2, text: 97.5 },
+    summ: { video: 4.97, text: 5.50 },
+    mcq:  { video: 65.7, text: 74.5 },
   },
 ];
 
