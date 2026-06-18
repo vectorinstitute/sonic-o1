@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: transparent;
+    padding: 14px 10px;
+    color: #000000;
+  }
+  .table-wrap {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    font-size: 12.6px;
+    line-height: 1.45;
+  }
+  thead th {
+    background: #f5f5f5;
+    color: #000000;
+    padding: 10px 8px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 11.2px;
+    letter-spacing: 0.02em;
+    border-bottom: 2px solid #111111;
+    vertical-align: middle;
+  }
+  thead th:first-child {
+    text-align: left;
+    border-radius: 6px 0 0 0;
+  }
+  thead th:last-child {
+    border-radius: 0 6px 0 0;
+  }
+  thead th.group-header {
+    background: rgba(235,8,138,0.07);
+    color: #000000;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 6px 12px;
+  }
+  tbody td {
+    padding: 9px 8px;
+    text-align: center;
+    border-bottom: 1px solid #e4e4e0;
+    font-variant-numeric: tabular-nums;
+  }
+  tbody td:first-child {
+    text-align: left;
+    font-weight: 500;
+    line-height: 1.35;
+    word-break: normal;
+    overflow-wrap: normal;
+    hyphens: none;
+  }
+  thead tr:nth-child(2) th:nth-child(6),
+  thead tr:nth-child(2) th:nth-child(10),
+  tbody td:nth-child(6),
+  tbody td:nth-child(10) {
+    border-left: 1px solid #d0d0ca;
+  }
+  tbody tr:hover {
+    background: #f5f5f5;
+  }
+  tbody tr:first-child {
+    background: rgba(235,8,138,0.07);
+  }
+  tbody tr:first-child:hover {
+    background: rgba(235,8,138,0.1);
+  }
+  .best {
+    font-weight: 700;
+    color: #EB088A;
+  }
+  .closed-source {
+    font-size: 10px;
+    color: #3c3c3c;
+    vertical-align: super;
+  }
+  .model-params {
+    color: #3c3c3c;
+    font-size: 12px;
+  }
+  .metric-low {
+    color: #9f2f2f;
+  }
+  .note {
+    font-size: 11px;
+    color: #9a9a9a;
+    margin-top: 10px;
+    line-height: 1.5;
+    max-width: 960px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+</style>
+</head>
+<body>
+<div class="table-wrap">
+<table>
+  <colgroup>
+    <col style="width: 150px;">
+    <col style="width: 60px;">
+    <col span="10">
+  </colgroup>
+  <thead>
+    <tr>
+      <th class="group-header" rowspan="1">Model</th>
+      <th class="group-header">Params</th>
+      <th class="group-header" colspan="3">Summarization</th>
+      <th class="group-header" colspan="4">MCQ</th>
+      <th class="group-header" colspan="3">Temporal Localization</th>
+    </tr>
+    <tr>
+      <th></th>
+      <th></th>
+      <th>Score<br>↑</th>
+      <th>RG-L<br>↑</th>
+      <th>Sim<br>↑</th>
+      <th>Acc<br>↑</th>
+      <th>Score<br>↑</th>
+      <th>RG-L<br>↑</th>
+      <th>Sim<br>↑</th>
+      <th>mIoU<br>↑</th>
+      <th>R@0.5<br>↑</th>
+      <th>Score<br>↑</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Gemini 3.0 Pro <span class="closed-source">†</span></td>
+      <td class="model-params">N/A</td>
+      <td class="best">7.07</td>
+      <td class="best">27.2</td>
+      <td class="best">0.81</td>
+      <td class="best">81.4</td>
+      <td class="best">8.71</td>
+      <td>19.6</td>
+      <td class="best">0.71</td>
+      <td class="best">26.6</td>
+      <td class="best">25.4</td>
+      <td class="best">5.38</td>
+    </tr>
+    <tr>
+      <td>Qwen3-Omni</td>
+      <td class="model-params">30B</td>
+      <td>5.72</td>
+      <td>22.8</td>
+      <td>0.71</td>
+      <td>65.7</td>
+      <td>7.47</td>
+      <td class="best">20.3</td>
+      <td>0.70</td>
+      <td>3.7</td>
+      <td>2.8</td>
+      <td>2.58</td>
+    </tr>
+    <tr>
+      <td>UniMoE-2.0</td>
+      <td class="model-params">33B</td>
+      <td>4.71</td>
+      <td>20.8</td>
+      <td>0.70</td>
+      <td>51.6</td>
+      <td>6.17</td>
+      <td>13.1</td>
+      <td>0.63</td>
+      <td>1.8</td>
+      <td>1.0</td>
+      <td>2.11</td>
+    </tr>
+    <tr>
+      <td>MiniCPM-o-2.6</td>
+      <td class="model-params">9B</td>
+      <td>3.34</td>
+      <td>14.7</td>
+      <td>0.56</td>
+      <td>51.9</td>
+      <td>6.15</td>
+      <td>10.3</td>
+      <td>0.60</td>
+      <td>1.8</td>
+      <td>0.7</td>
+      <td>3.65</td>
+    </tr>
+    <tr>
+      <td>Baichuan-Omni 1.5</td>
+      <td class="model-params">7B</td>
+      <td>3.68</td>
+      <td>18.8</td>
+      <td>0.60</td>
+      <td>56.2</td>
+      <td>6.18</td>
+      <td>15.1</td>
+      <td>0.65</td>
+      <td>2.8</td>
+      <td>1.1</td>
+      <td>2.29</td>
+    </tr>
+    <tr>
+      <td>OLA</td>
+      <td class="model-params">7B</td>
+      <td>4.42</td>
+      <td>19.0</td>
+      <td>0.64</td>
+      <td>53.2</td>
+      <td>6.61</td>
+      <td>14.0</td>
+      <td>0.64</td>
+      <td>3.3</td>
+      <td>1.2</td>
+      <td>3.48</td>
+    </tr>
+    <tr>
+      <td>VITA 1.5</td>
+      <td class="model-params">8B</td>
+      <td>2.77</td>
+      <td>16.3</td>
+      <td>0.49</td>
+      <td>51.1</td>
+      <td>6.04</td>
+      <td>13.2</td>
+      <td>0.63</td>
+      <td>1.8</td>
+      <td>1.2</td>
+      <td>3.91</td>
+    </tr>
+    <tr>
+      <td>VideoLLaMA 2</td>
+      <td class="model-params">7B</td>
+      <td class="metric-low">1.53</td>
+      <td class="metric-low">12.7</td>
+      <td class="metric-low">0.38</td>
+      <td class="metric-low">26.4</td>
+      <td class="metric-low">4.17</td>
+      <td class="metric-low">9.3</td>
+      <td class="metric-low">0.53</td>
+      <td>3.5</td>
+      <td class="metric-low">0.4</td>
+      <td>2.22</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<p class="note">
+  <span class="closed-source">†</span> Closed-source model. All metrics macro-averaged across 13 topics.
+  Score = LLM-judge (0–10). RG-L = ROUGE-L. Sim = cosine similarity (0–1). Higher is better for all metrics.
+</p>
+</body>
+</html>

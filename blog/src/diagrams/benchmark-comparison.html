@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: #f8f9fa;
+    padding: 14px;
+    color: #333;
+  }
+  .container { 
+    max-width: 1200px; 
+    margin: 0 auto; 
+    background: #fff;
+    padding: 18px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+  
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: #111;
+  }
+
+  /* Filter controls */
+  .filter-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    padding: 8px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: #475569;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  }
+  .filter-btn:hover { background: #f1f5f9; }
+  .filter-btn.active {
+    background: #3b82f6;
+    color: #fff;
+    border-color: #3b82f6;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+  }
+
+  /* Responsive Table Wrapper */
+  .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+  }
+
+  table {
+    width: 100%;
+    min-width: 820px; /* Keep the paper's key comparison columns within the article width. */
+    border-collapse: collapse;
+    font-size: 12.5px;
+    text-align: left;
+  }
+  
+  thead th {
+    background: #f8fafc;
+    color: #334155;
+    padding: 10px 9px;
+    font-weight: 600;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+  }
+  
+  tbody td {
+    padding: 10px 9px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #475569;
+    vertical-align: middle;
+  }
+  
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #f8fafc; }
+  
+  tbody td:first-child {
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+  }
+
+  .separator-row td {
+    background: #f1f5f9;
+    font-weight: 600;
+    color: #334155;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 11px;
+    padding: 10px 16px;
+  }
+  
+  tbody tr.highlight {
+    background: #eff6ff; /* Soft blue background */
+  }
+  tbody tr.highlight:hover {
+    background: #e0f2fe;
+  }
+  tbody tr.highlight td:first-child {
+    color: #1d4ed8; /* Darker blue text for the highlighted name */
+  }
+  
+  /* Colorful Pills */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    min-width: 28px;
+  }
+  .yes {
+    background: #dcfce7;
+    color: #166534;
+  }
+  .no {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  .partial {
+    background: #fef3c7;
+    color: #b45309;
+  }
+  
+  .note {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h3>SONIC-O1 Benchmark Comparison</h3>
+  <div class="filter-row">
+    <button class="filter-btn active" onclick="filterRows('all')">All Benchmarks</button>
+    <button class="filter-btn" onclick="filterRows('video')">Video-QA Only</button>
+    <button class="filter-btn" onclick="filterRows('avqa')">Audio-Visual Only</button>
+  </div>
+  
+  <div class="table-responsive">
+    <table id="comparison-table">
+      <thead>
+        <tr>
+          <th>Benchmark</th>
+          <th>Size</th>
+          <th>Lengths (min)</th>
+          <th>Summ.</th>
+          <th>Temp.</th>
+          <th>Reas.</th>
+          <th>AVQA</th>
+          <th>Social Cues</th>
+          <th>Human Ann.</th>
+          <th>Open Src</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  
+  <p class="note">
+    <strong>Summ.</strong> = Summarization task. <strong>Temp.</strong> = Full temporal localization (δ = partial). <strong>Reas.</strong> = Reasoning/rationale required.<br>
+    <strong>AVQA</strong> = Native Audio-Visual QA. <strong>Social Cues</strong> = Demographic metadata included for fairness evaluation.
+  </p>
+</div>
+
+<script>
+const benchmarks = [
+  // Video-QA
+  { group: 'video', name: 'LongVideoBench', size: '6,678', lengths: '~8', qa: 'MCQs', summ: false, temp: 'partial', reas: true, avqa: false, social: false, auto: false, human: true, open: true },
+  { group: 'video', name: 'LVBench', size: '1,549', lengths: '~68', qa: 'MCQs', summ: false, temp: 'partial', reas: true, avqa: false, social: false, auto: false, human: true, open: false },
+  { group: 'video', name: 'CinePile', size: '305K', lengths: '~3', qa: 'MCQs', summ: false, temp: 'partial', reas: false, avqa: false, social: false, auto: true, human: true, open: false },
+  { group: 'video', name: 'Sports-QA', size: '94,000', lengths: '<1', qa: 'Open-ended', summ: false, temp: 'partial', reas: true, avqa: false, social: false, auto: true, human: true, open: true },
+  { group: 'video', name: 'InfiniBench', size: '87,700', lengths: '~53', qa: 'MCQs + Open', summ: true, temp: 'partial', reas: true, avqa: false, social: false, auto: true, human: true, open: true },
+  
+  // AVQA
+  { group: 'avqa', name: 'VAST', size: '27M', lengths: '<1', qa: 'Captioning', summ: false, temp: false, reas: false, avqa: true, social: false, auto: true, human: false, open: false },
+  { group: 'avqa', name: 'Daily-Omni', size: '1,197', lengths: '<1', qa: 'MCQs', summ: false, temp: 'partial', reas: true, avqa: true, social: false, auto: true, human: false, open: true },
+  { group: 'avqa', name: 'WorldSense', size: '1,662', lengths: '~2.4', qa: 'MCQs', summ: false, temp: false, reas: true, avqa: true, social: false, auto: false, human: true, open: true },
+  { group: 'avqa', name: 'LongVALE', size: '8,411', lengths: '~3.9', qa: 'Captioning', summ: false, temp: true, reas: false, avqa: true, social: false, auto: true, human: true, open: true },
+  { group: 'avqa', name: 'Video-MME', size: '2,700', lengths: '<2; 4–15; 30–60', qa: 'MCQs', summ: false, temp: 'partial', reas: false, avqa: true, social: false, auto: false, human: true, open: true },
+  { group: 'avqa', name: 'MAVERIX', size: '2,556', lengths: '~6', qa: 'MCQs + Open', summ: false, temp: 'partial', reas: true, avqa: true, social: false, auto: false, human: true, open: false },
+  { group: 'avqa', name: 'CG-Bench', size: '12,129', lengths: '10–60', qa: 'MCQs + Open', summ: false, temp: true, reas: true, avqa: true, social: false, auto: false, human: true, open: true },
+  { group: 'avqa', name: 'OmniVideoBench', size: '1,000', lengths: '1–30', qa: 'MCQs + Open', summ: true, temp: 'partial', reas: true, avqa: true, social: false, auto: false, human: true, open: true },
+  { group: 'avqa', name: 'AURA', size: '1,600', lengths: '<1', qa: 'MCQs', summ: false, temp: 'partial', reas: true, avqa: true, social: false, auto: true, human: false, open: true },
+  { group: 'avqa', name: 'SONIC-O1', size: '4,958', lengths: '<5; 5–20; 20–60', qa: 'MCQs + Open', summ: true, temp: true, reas: true, avqa: true, social: true, auto: true, human: true, open: true, highlight: true },
+];
+
+function getBadge(val) {
+  if (val === true) return '<span class="badge yes">✓</span>';
+  if (val === false) return '<span class="badge no">✗</span>';
+  if (val === 'partial') return '<span class="badge partial">δ</span>';
+  return val;
+}
+
+function renderTable(filter) {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  const filtered = filter === 'all' ? benchmarks : benchmarks.filter(b => b.group === filter || b.name === 'SONIC-O1');
+
+  let lastGroup = '';
+  filtered.forEach(b => {
+    // Add group headers if showing 'all'
+    if (filter === 'all' && b.group !== lastGroup) {
+      const sepRow = document.createElement('tr');
+      sepRow.className = 'separator-row';
+      const label = b.group === 'video' ? 'Video-QA Benchmarks (AVQA: ✗)' : 'Audio-Visual Benchmarks (AVQA: ✓)';
+      sepRow.innerHTML = `<td colspan="10">${label}</td>`;
+      tbody.appendChild(sepRow);
+      lastGroup = b.group;
+    }
+    
+    const tr = document.createElement('tr');
+    if (b.highlight) tr.className = 'highlight';
+    
+    tr.innerHTML = `
+      <td>${b.name}</td>
+      <td>${b.size}</td>
+      <td>${b.lengths}</td>
+      <td style="text-align:center">${getBadge(b.summ)}</td>
+      <td style="text-align:center">${getBadge(b.temp)}</td>
+      <td style="text-align:center">${getBadge(b.reas)}</td>
+      <td style="text-align:center">${getBadge(b.avqa)}</td>
+      <td style="text-align:center">${getBadge(b.social)}</td>
+      <td style="text-align:center">${getBadge(b.human)}</td>
+      <td style="text-align:center">${getBadge(b.open)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function filterRows(filter) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderTable(filter);
+}
+
+// Initial render
+renderTable('all');
+</script>
+</body>
+</html>
