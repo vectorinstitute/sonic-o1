@@ -73,8 +73,7 @@ class BaichuanOmni(BaseModel):
         # Cache dir — processor writes extracted video frame jpgs here.
         # Must be absolute path on persistent storage (not $SCRATCH).
         self.cache_dir = config.get(
-            "cache_dir",
-            "/projects/aixpert/users/ahmadradw/VideoQA-Agentic/sonic-o1/.cache",
+            "cache_dir"
         )
 
         # Frame config — patched into model.config.video_config.max_frame_num after load

@@ -13,7 +13,7 @@ Detection rule:
   - BUT pred + segment_start ≈ gt (within OFFSET_TOLERANCE seconds)
   → Correct by shifting: corrected = pred + segment_start
 
-Run from VideoQA-Agentic/:
+Run 
     python sonic-o1/parser_correction.py
 
 Output:

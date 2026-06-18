@@ -10,14 +10,24 @@ This directory handles model evaluation and inference for video question-answeri
 05_evaluation_inference/
 ├── run_evaluation.py          # Main evaluation pipeline orchestrator
 ├── README.md                  # This file
-│
+├── external_repos/            # External model repositories
+│   ├── Baichuan-Omni-1.5/    # Baichuan-Omni 1.5 repository
+│   ├── Ola/                   # OLA omni model repository
+│   ├── omnivinci/             # OmniVinci repository
+│   ├── Uni-MoE/               # Uni-MoE repository
+│   ├── VideoLLaMA2/           # VideoLLaMA2 repository
+│   ├── VITA/                  # VITA repository
+│   └── README.md              # Details on included repos
 ├── inference/                 # Inference execution
 │   └── run_inference.py      # Standalone inference script
 │
 ├── models/                    # Model implementations
 │   ├── base_model.py         # Base class for all models
+│   ├── baichuan.py           # Baichuan-Omni 1.5 model
 │   ├── gemini.py             # Google Gemini API
 │   ├── gpt4o.py              # OpenAI GPT-4o API
+│   ├── ola.py                # OLA omni model
+│   ├── omnivinci.py          # OmniVinci model
 │   ├── qwen3.py              # Qwen3 VL model
 │   ├── minicpm.py            # MiniCPM-V model
 │   ├── phi4.py               # Phi-4 Vision model
@@ -49,6 +59,9 @@ This directory handles model evaluation and inference for video question-answeri
 ├── models_config.yaml         # Model and evaluation configuration
 │
 ├── models_requirements/        # Model-specific requirements
+│   ├── requirements_baichuan.txt
+│   ├── requirements_ola.txt
+│   ├── requirements_omnivinci.txt
 │   ├── requirements_venv_llama.txt
 │   ├── requirements_venv_minicpm.txt
 │   ├── requirements_venv_phi4.txt
@@ -108,13 +121,16 @@ The pipeline supports multiple video understanding models:
 - **GPT-4o** - OpenAI GPT-4o Vision API
 
 **Open-Source Models:**
-- **Qwen3** - Qwen3 VL model
+- **Baichuan-Omni 1.5** - Baichuan omnimodal model
 - **MiniCPM-V** - MiniCPM Vision model
+- **OLA** - OLA omni-modal language model
+- **OmniVinci** - NVIDIA OmniVinci model
 - **Phi-4** - Phi-4 Vision model
+- **Qwen3** - Qwen3 VL model
 - **Uni-MoE** - Uni-MoE multimodal model
 - **Video-LLaMA** - Video-LLaMA2 model
 - **VITA** - VITA video understanding model
-
+- 
 ### Features
 
 - **Multiple Model Support**: Evaluate various open-source and commercial models
@@ -219,6 +235,27 @@ pip install -r models_requirements/requirements_venv_phi4.txt
 python -m venv venv_unimoe
 source venv_unimoe/bin/activate
 pip install -r models_requirements/requirements_venv_unimoe.txt
+```
+
+**Baichuan-Omni 1.5:**
+```bash
+python -m venv venv_baichuan
+source venv_baichuan/bin/activate
+pip install -r models_requirements/requirements_baichuan.txt
+```
+
+**OLA:**
+```bash
+python -m venv venv_ola
+source venv_ola/bin/activate
+pip install -r models_requirements/requirements_ola.txt
+```
+
+**OmniVinci:**
+```bash
+python -m venv venv_omnivinci
+source venv_omnivinci/bin/activate
+pip install -r models_requirements/requirements_omnivinci.txt
 ```
 
 **VITA:**
@@ -651,7 +688,7 @@ Or check LLM judge model configuration in `models_config.yaml`.
 
 ## Notes
 
-- **Environment Management**: Most models work with the general environment. Only use model-specific environments (in `models_requirements/`) when running models with special requirements (Uni-MoE, VITA, Video-LLaMA, MiniCPM-V, Phi-4).
+- **Environment Management**: Most models work with the general environment. Only use model-specific environments (in `models_requirements/`) when running models with special requirements (Baichuan-Omni 1.5, OLA, OmniVinci, Uni-MoE, VITA, Video-LLaMA, MiniCPM-V, Phi-4).
 
 - **Path Resolution**: All scripts expect to be run from the `sonic-o1` parent directory to properly resolve relative imports and data paths.
 

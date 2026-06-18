@@ -188,9 +188,9 @@
           with supporting rationales (reasoning).
         </p>
         <p>
-          Experiments across both commercial closed-source and open-source models reveal important limitations. While the gap 
-          in MCQ accuracy is relatively small, we observe a substantial <strong>22.9%</strong> performance difference in temporal 
-          localization between the best commercial and best open-source systems. Performance further degrades across demographic 
+          Experiments across both commercial closed-source and open-source models reveal important limitations. While the gap
+          in MCQ accuracy is relatively small, we observe a substantial <strong>22.6%</strong> performance difference in temporal
+          localization between the best commercial and best open-source systems. Performance further degrades across demographic
           groups, indicating persistent disparities in model behavior.
         </p>
         <p>
@@ -432,7 +432,7 @@
     <section id="results" class="section">
       <h2>Results</h2>
       <p class="section-intro">
-        We evaluate 6 state-of-the-art multimodal models on SONIC-O1. Closed-source models (Gemini 3.0 Pro)
+        We evaluate <strong>8 state-of-the-art multimodal models</strong> on SONIC-O1.Closed-source models (Gemini 3.0 Pro)
         consistently outperform open-source alternatives, though temporal localization remains challenging for all systems.
       </p>
 
@@ -452,42 +452,56 @@
               <td><a target="_blank" rel="noreferrer" href="https://deepmind.google/technologies/gemini/">Gemini 3.0 Pro †</a></td>
               <td class="center">—</td>
               <td class="center"><strong>7.07</strong></td>
-              <td class="center"><strong>96.4</strong></td>
+              <td class="center"><strong>81.4</strong></td>
               <td class="center"><strong>25.4</strong></td>
             </tr>
             <tr>
               <td><a target="_blank" rel="noreferrer" href="https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct">Qwen3-Omni</a></td>
               <td class="center">30B</td>
               <td class="center">5.72</td>
-              <td class="center">93.6</td>
+              <td class="center">65.7</td>
               <td class="center">2.8</td>
             </tr>
             <tr>
               <td><a target="_blank" rel="noreferrer" href="https://arxiv.org/abs/2511.12609">UniMoE-2.0</a></td>
               <td class="center">33B</td>
               <td class="center">4.71</td>
-              <td class="center">88.2</td>
+              <td class="center">51.6</td>
               <td class="center">1.0</td>
+            </tr>
+            <tr>
+              <td><a target="_blank" rel="noreferrer" href="https://huggingface.co/THUdyh/Ola-7b">OLA</a></td>
+              <td class="center">7B</td>
+              <td class="center">4.42</td>
+              <td class="center">53.2</td>
+              <td class="center">1.2</td>
+            </tr>
+            <tr>
+              <td><a target="_blank" rel="noreferrer" href="https://huggingface.co/baichuan-inc/Baichuan-Omni-1d5">Baichuan-Omni 1.5</a></td>
+              <td class="center">7B</td>
+              <td class="center">3.68</td>
+              <td class="center">56.2</td>
+              <td class="center">1.1</td>
             </tr>
             <tr>
               <td><a target="_blank" rel="noreferrer" href="https://huggingface.co/openbmb/MiniCPM-o-2_6">MiniCPM-o-2.6</a></td>
               <td class="center">9B</td>
               <td class="center">3.34</td>
-              <td class="center">87.4</td>
+              <td class="center">51.9</td>
               <td class="center">0.7</td>
             </tr>
             <tr>
               <td><a target="_blank" rel="noreferrer" href="https://github.com/VITA-MLLM/VITA">VITA 1.5</a></td>
               <td class="center">8B</td>
               <td class="center">2.77</td>
-              <td class="center">81.6</td>
+              <td class="center">51.1</td>
               <td class="center">1.2</td>
             </tr>
             <tr>
               <td><a target="_blank" rel="noreferrer" href="https://huggingface.co/DAMO-NLP-SG/VideoLLaMA2.1-7B-AV">VideoLLaMA2</a></td>
               <td class="center">7B</td>
               <td class="center">1.53</td>
-              <td class="center">54.3</td>
+              <td class="center">26.4</td>
               <td class="center">0.4</td>
             </tr>
           </tbody>
@@ -505,17 +519,17 @@
         <h3 class="h3">Key Findings</h3>
         <ul class="bullets">
           <li>
-            <strong>Accuracy-temporal grounding disconnect:</strong> Gemini 3.0 Pro achieves 96.4% MCQ accuracy
+            <strong>Accuracy-temporal grounding disconnect:</strong> Gemini 3.0 Pro achieves 81.4% MCQ accuracy
             but only 25.4% R@0.5 for temporal localization, revealing that models can identify <em>what</em> happens
             but struggle to pinpoint <em>when</em>.
           </li>
           <li>
-            <strong>Temporal localization is the hardest task for video understanding AI:</strong> Open-source models achieve &lt;3% R@0.5,
-            with a 22% performance gap to Gemini 3.0 Pro, indicating fundamental limitations in temporal reasoning and event timing prediction.
+            <strong>Temporal localization is the hardest task:</strong> Open-source models achieve &lt;3% R@0.5,
+            with a ~23% performance gap to Gemini 3.0 Pro, indicating fundamental limitations in temporal reasoning.
           </li>
           <li>
-            <strong>Model scale matters:</strong> Larger models (Qwen3-Omni 30B, UniMoE-2.0 33B) significantly
-            outperform smaller variants (7-9B), though even at scale, temporal grounding remains challenging.
+            <strong>Model scale matters but is not decisive:</strong> Baichuan-Omni 1.5 and OLA (both 7B) outperform
+            the larger UniMoE-2.0 (33B) on MCQ, though scale helps for summarization and temporal grounding.
           </li>
         </ul>
       </div>
@@ -599,67 +613,88 @@
             </tr>
           </thead>
           <tbody>
-            <tr class="highlight">
-              <td>Gemini 3.0 Pro †</td>
-              <td class="center">6.68</td>
-              <td class="center worst">6.02</td>
-              <td class="center best">7.05</td>
-              <td class="center">6.41</td>
-              <td class="center">6.70</td>
-              <td class="center">6.90</td>
-              <td class="center">1.03</td>
-            </tr>
-            <tr>
-              <td>Qwen3-Omni</td>
-              <td class="center">5.28</td>
-              <td class="center worst">4.39</td>
-              <td class="center">5.71</td>
-              <td class="center">4.99</td>
-              <td class="center">4.13</td>
-              <td class="center best">5.95</td>
-              <td class="center">1.82</td>
-            </tr>
-            <tr>
-              <td>UniMoE-2.0-Omni</td>
-              <td class="center">4.29</td>
-              <td class="center worst">3.45</td>
-              <td class="center best">4.62</td>
-              <td class="center">3.70</td>
-              <td class="center">4.35</td>
-              <td class="center">5.00</td>
-              <td class="center">1.55</td>
-            </tr>
-            <tr>
-              <td>MiniCPM-o-2.6</td>
-              <td class="center">3.26</td>
-              <td class="center worst">2.92</td>
-              <td class="center">3.26</td>
-              <td class="center">3.04</td>
-              <td class="center best">3.61</td>
-              <td class="center">3.57</td>
-              <td class="center">0.69</td>
-            </tr>
-            <tr>
-              <td>VITA 1.5</td>
-              <td class="center">2.50</td>
-              <td class="center">2.31</td>
-              <td class="center">2.65</td>
-              <td class="center">2.21</td>
-              <td class="center worst">1.65</td>
-              <td class="center best">2.76</td>
-              <td class="center">1.11</td>
-            </tr>
-            <tr>
-              <td>VideoLLaMA2</td>
-              <td class="center">1.45</td>
-              <td class="center">1.38</td>
-              <td class="center best">1.63</td>
-              <td class="center">1.23</td>
-              <td class="center">1.04</td>
-              <td class="center worst">1.00</td>
-              <td class="center">0.63</td>
-            </tr>
-          </tbody>
+            <tbody>
+              <tr class="highlight">
+                <td>Gemini 3.0 Pro †</td>
+                <td class="center">6.68</td>
+                <td class="center worst">6.02</td>
+                <td class="center best">7.05</td>
+                <td class="center">6.41</td>
+                <td class="center">6.70</td>
+                <td class="center">6.90</td>
+                <td class="center">1.03</td>
+              </tr>
+              <tr>
+                <td>Qwen3-Omni</td>
+                <td class="center">5.28</td>
+                <td class="center">4.39</td>
+                <td class="center">5.71</td>
+                <td class="center">4.99</td>
+                <td class="center worst">4.13</td>
+                <td class="center best">5.95</td>
+                <td class="center">1.82</td>
+              </tr>
+              <tr>
+                <td>UniMoE-2.0</td>
+                <td class="center">4.29</td>
+                <td class="center worst">3.45</td>
+                <td class="center">4.62</td>
+                <td class="center">3.70</td>
+                <td class="center">4.35</td>
+                <td class="center best">5.00</td>
+                <td class="center">1.55</td>
+              </tr>
+              <tr>
+                <td>MiniCPM-o-2.6</td>
+                <td class="center">3.26</td>
+                <td class="center worst">2.92</td>
+                <td class="center">3.26</td>
+                <td class="center">3.04</td>
+                <td class="center best">3.61</td>
+                <td class="center">3.57</td>
+                <td class="center">0.69</td>
+              </tr>
+              <tr>
+                <td>Baichuan-Omni 1.5</td>
+                <td class="center">3.22</td>
+                <td class="center">2.55</td>
+                <td class="center">3.61</td>
+                <td class="center worst">2.44</td>
+                <td class="center">3.70</td>
+                <td class="center best">4.29</td>
+                <td class="center">1.85</td>
+              </tr>
+              <tr>
+                <td>OLA</td>
+                <td class="center">4.27</td>
+                <td class="center worst">3.60</td>
+                <td class="center">4.29</td>
+                <td class="center">3.62</td>
+                <td class="center">4.39</td>
+                <td class="center best">4.76</td>
+                <td class="center">1.16</td>
+              </tr>
+              <tr>
+                <td>VITA 1.5</td>
+                <td class="center">2.50</td>
+                <td class="center">2.31</td>
+                <td class="center">2.65</td>
+                <td class="center">2.21</td>
+                <td class="center worst">1.65</td>
+                <td class="center best">2.76</td>
+                <td class="center">1.11</td>
+              </tr>
+              <tr>
+                <td>VideoLLaMA2</td>
+                <td class="center">1.45</td>
+                <td class="center">1.38</td>
+                <td class="center best">1.63</td>
+                <td class="center">1.23</td>
+                <td class="center">1.04</td>
+                <td class="center worst">1.00</td>
+                <td class="center">0.63</td>
+              </tr>
+            </tbody>
         </table>
       </div>
 
@@ -681,63 +716,83 @@
           <tbody>
             <tr class="highlight">
               <td>Gemini 3.0 Pro †</td>
-              <td class="center">96.9</td>
-              <td class="center">96.4</td>
-              <td class="center">97.8</td>
-              <td class="center">96.1</td>
-              <td class="center worst">94.3</td>
-              <td class="center best">98.4</td>
-              <td class="center">4.1</td>
+              <td class="center">81.2</td>
+              <td class="center">79.2</td>
+              <td class="center">80.3</td>
+              <td class="center worst">79.1</td>
+              <td class="center">80.0</td>
+              <td class="center best">82.7</td>
+              <td class="center">3.6</td>
             </tr>
             <tr>
               <td>Qwen3-Omni</td>
-              <td class="center">93.3</td>
-              <td class="center">92.0</td>
-              <td class="center">96.1</td>
-              <td class="center">92.8</td>
-              <td class="center worst">77.1</td>
-              <td class="center best">96.9</td>
-              <td class="center">19.8</td>
+              <td class="center">66.5</td>
+              <td class="center">63.5</td>
+              <td class="center worst">61.8</td>
+              <td class="center">63.5</td>
+              <td class="center best">68.6</td>
+              <td class="center">63.9</td>
+              <td class="center">6.8</td>
             </tr>
             <tr>
-              <td>UniMoE-2.0-Omni</td>
-              <td class="center">88.9</td>
-              <td class="center">87.4</td>
-              <td class="center">89.2</td>
-              <td class="center">85.5</td>
-              <td class="center worst">80.0</td>
-              <td class="center best">95.3</td>
-              <td class="center">15.3</td>
+              <td>UniMoE-2.0</td>
+              <td class="center">51.0</td>
+              <td class="center">48.9</td>
+              <td class="center best">53.6</td>
+              <td class="center">48.5</td>
+              <td class="center worst">42.9</td>
+              <td class="center">48.7</td>
+              <td class="center">10.7</td>
             </tr>
             <tr>
               <td>MiniCPM-o-2.6</td>
-              <td class="center">87.5</td>
-              <td class="center">86.3</td>
-              <td class="center">88.7</td>
-              <td class="center worst">81.6</td>
-              <td class="center">82.9</td>
-              <td class="center best">92.7</td>
-              <td class="center">11.1</td>
+              <td class="center best">51.2</td>
+              <td class="center">49.5</td>
+              <td class="center">51.0</td>
+              <td class="center worst">48.5</td>
+              <td class="center">48.6</td>
+              <td class="center">50.3</td>
+              <td class="center">2.7</td>
+            </tr>
+            <tr>
+              <td>Baichuan-Omni 1.5</td>
+              <td class="center">55.8</td>
+              <td class="center">52.2</td>
+              <td class="center">55.7</td>
+              <td class="center worst">48.2</td>
+              <td class="center best">62.9</td>
+              <td class="center">58.6</td>
+              <td class="center">14.7</td>
+            </tr>
+            <tr>
+              <td>OLA</td>
+              <td class="center">52.7</td>
+              <td class="center">48.3</td>
+              <td class="center best">53.4</td>
+              <td class="center">46.5</td>
+              <td class="center worst">31.4</td>
+              <td class="center">51.3</td>
+              <td class="center">22.0</td>
             </tr>
             <tr>
               <td>VITA 1.5</td>
-              <td class="center">82.0</td>
-              <td class="center">82.2</td>
-              <td class="center">84.6</td>
-              <td class="center">79.1</td>
-              <td class="center worst">62.9</td>
-              <td class="center best">93.2</td>
-              <td class="center">30.3</td>
+              <td class="center">49.0</td>
+              <td class="center">48.1</td>
+              <td class="center best">49.5</td>
+              <td class="center">48.5</td>
+              <td class="center worst">42.4</td>
+              <td class="center">47.1</td>
+              <td class="center">7.1</td>
             </tr>
             <tr>
               <td>VideoLLaMA2</td>
-              <td class="center">55.1</td>
-              <td class="center">55.0</td>
-              <td class="center">57.9</td>
-              <td class="center worst">51.0</td>
-              <td class="center">65.7</td>
-              <td class="center best">66.0</td>
-              <td class="center">15.0</td>
+              <td class="center best">26.7</td>
+              <td class="center">24.6</td>
+              <td class="center">23.2</td>
+              <td class="center">22.6</td>
+              <td class="center worst">8.6</td>
+              <td class="center">20.9</td>
+              <td class="center">18.1</td>
             </tr>
           </tbody>
         </table>
@@ -747,79 +802,88 @@
       <div class="table-wrap">
         <table class="table">
           <thead>
-            <tr>
-              <th>Model</th>
-              <th class="center">White</th>
-              <th class="center">Black</th>
-              <th class="center">Asian</th>
-              <th class="center">Hispanic</th>
-              <th class="center">Indigenous</th>
-              <th class="center">Arab</th>
-              <th class="center">Gap ↓</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="highlight">
-              <td>Gemini 3.0 Pro †</td>
-              <td class="center">23.0</td>
-              <td class="center worst">19.5</td>
-              <td class="center">30.7</td>
-              <td class="center">23.8</td>
-              <td class="center best">40.9</td>
-              <td class="center">21.1</td>
-              <td class="center">21.4</td>
-            </tr>
-            <tr>
-              <td>Qwen3-Omni</td>
-              <td class="center">2.6</td>
-              <td class="center">1.8</td>
-              <td class="center best">2.9</td>
-              <td class="center">2.3</td>
-              <td class="center worst">0.0</td>
-              <td class="center">1.6</td>
-              <td class="center">2.9</td>
-            </tr>
-            <tr>
-              <td>UniMoE-2.0</td>
-              <td class="center">1.2</td>
-              <td class="center">0.6</td>
-              <td class="center">0.6</td>
-              <td class="center worst">0.1</td>
-              <td class="center best">1.3</td>
-              <td class="center">0.2</td>
-              <td class="center">1.2</td>
-            </tr>
-            <tr>
-              <td>MiniCPM-o-2.6</td>
-              <td class="center">0.9</td>
-              <td class="center">0.3</td>
-              <td class="center">0.8</td>
-              <td class="center">0.2</td>
-              <td class="center worst">0.0</td>
-              <td class="center best">2.6</td>
-              <td class="center">2.6</td>
-            </tr>
-            <tr>
-              <td>VITA 1.5</td>
-              <td class="center">1.4</td>
-              <td class="center best">1.4</td>
-              <td class="center best">1.4</td>
-              <td class="center worst">0.8</td>
-              <td class="center">1.3</td>
-              <td class="center">1.2</td>
-              <td class="center">0.6</td>
-            </tr>
-            <tr>
-              <td>VideoLLaMA2</td>
-              <td class="center">0.5</td>
-              <td class="center">0.3</td>
-              <td class="center">0.4</td>
-              <td class="center worst">0.0</td>
-              <td class="center best">1.3</td>
-              <td class="center worst">0.0</td>
-              <td class="center">1.3</td>
-            </tr>
-          </tbody>
+            <tbody>
+              <tr class="highlight">
+                <td>Gemini 3.0 Pro †</td>
+                <td class="center">23.0</td>
+                <td class="center worst">19.5</td>
+                <td class="center">30.7</td>
+                <td class="center">23.8</td>
+                <td class="center best">40.9</td>
+                <td class="center">21.1</td>
+                <td class="center">21.4</td>
+              </tr>
+              <tr>
+                <td>Qwen3-Omni</td>
+                <td class="center">2.6</td>
+                <td class="center">1.8</td>
+                <td class="center best">2.9</td>
+                <td class="center">2.3</td>
+                <td class="center worst">0.0</td>
+                <td class="center">1.6</td>
+                <td class="center">2.9</td>
+              </tr>
+              <tr>
+                <td>UniMoE-2.0</td>
+                <td class="center">1.2</td>
+                <td class="center">0.6</td>
+                <td class="center">0.6</td>
+                <td class="center worst">0.1</td>
+                <td class="center best">1.3</td>
+                <td class="center">0.2</td>
+                <td class="center">1.2</td>
+              </tr>
+              <tr>
+                <td>MiniCPM-o-2.6</td>
+                <td class="center">0.9</td>
+                <td class="center">0.3</td>
+                <td class="center">0.8</td>
+                <td class="center">0.2</td>
+                <td class="center worst">0.0</td>
+                <td class="center best">2.6</td>
+                <td class="center">2.6</td>
+              </tr>
+              <tr>
+                <td>Baichuan-Omni 1.5</td>
+                <td class="center">1.3</td>
+                <td class="center">0.8</td>
+                <td class="center">1.6</td>
+                <td class="center">0.8</td>
+                <td class="center best">5.8</td>
+                <td class="center worst">0.3</td>
+                <td class="center">5.5</td>
+              </tr>
+              <tr>
+                <td>OLA</td>
+                <td class="center worst">1.2</td>
+                <td class="center">1.7</td>
+                <td class="center">1.3</td>
+                <td class="center">1.4</td>
+                <td class="center best">9.2</td>
+                <td class="center">1.4</td>
+                <td class="center">8.0</td>
+              </tr>
+              <tr>
+                <td>VITA 1.5</td>
+                <td class="center best">1.4</td>
+                <td class="center best">1.4</td>
+                <td class="center best">1.4</td>
+                <td class="center worst">0.8</td>
+                <td class="center">1.3</td>
+                <td class="center">1.2</td>
+                <td class="center">0.6</td>
+              </tr>
+              <tr>
+                <td>VideoLLaMA2</td>
+                <td class="center">0.5</td>
+                <td class="center">0.3</td>
+                <td class="center">0.4</td>
+                <td class="center worst">0.0</td>
+                <td class="center best">1.3</td>
+                <td class="center worst">0.0</td>
+                <td class="center">1.3</td>
+              </tr>
+            </tbody>
         </table>
       </div>
       <p class="table-note">
@@ -867,11 +931,11 @@
           <div class="highlight-content">
             <h3>Key Finding: Audio Dominates, Temporal Grounding Remains Hard</h3>
             <p>
-              Our findings show that <strong>audio or transcripts often provide the strongest cues for 
-              comprehension</strong>, while <strong>temporal localization remains the most challenging 
-              setting</strong>. Gemini 3.0 Pro achieves <strong>96.4% MCQ accuracy</strong> and generates 
-              high-quality rationales, yet attains only <strong>25.4% recall at IoU≥0.5</strong> for 
-              temporal localization—a <strong>22.9% performance gap</strong> separates the best commercial 
+              Our findings show that <strong>audio or transcripts often provide the strongest cues for
+              comprehension</strong>, while <strong>temporal localization remains the most challenging
+              setting</strong>. Gemini 3.0 Pro achieves <strong>81.4% MCQ accuracy</strong> and generates
+              high-quality rationales, yet attains only <strong>25.4% recall at IoU≥0.5</strong> for
+              temporal localization—a <strong>22.6% performance gap</strong> separates the best commercial
               and best open-source systems on this task.
             </p>
           </div>
