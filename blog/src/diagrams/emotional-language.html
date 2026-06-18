@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: transparent;
+    padding: 16px;
+    color: #000000;
+  }
+  .container { max-width: 780px; margin: 0 auto; }
+  h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #000000;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    font-size: 11.5px;
+    color: #3c3c3c;
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .metric-card {
+    border: 1px solid #e4e4e0;
+    border-radius: 8px;
+    padding: 14px;
+    background: #ffffff;
+  }
+  .metric-card h4 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #3c3c3c;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .metric-card .description {
+    font-size: 10px;
+    color: #9a9a9a;
+    text-align: center;
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+  .bar-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    gap: 6px;
+  }
+  .bar-item .name {
+    font-size: 10px;
+    font-weight: 500;
+    min-width: 82px;
+    text-align: right;
+    color: #3c3c3c;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bar-item .track {
+    flex: 1;
+    height: 16px;
+    background: #f5f5f5;
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-item .fill {
+    height: 100%;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    color: #fff;
+    transition: width 0.4s ease;
+    min-width: 20px;
+  }
+  .bar-item .val {
+    font-size: 10px;
+    font-weight: 600;
+    min-width: 32px;
+    text-align: left;
+    color: #3c3c3c;
+    font-variant-numeric: tabular-nums;
+  }
+  .insight {
+    padding: 10px 14px;
+    background: rgba(235,8,138,0.07);
+    border-left: 3px solid #EB088A;
+    border-radius: 0 6px 6px 0;
+    font-size: 11.5px;
+    color: #3c3c3c;
+    line-height: 1.55;
+  }
+  .insight strong { color: #EB088A; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h3>Emotional Language Profiles of MLLMs</h3>
+  <p class="subtitle">
+    Analysis of empathic summary outputs using LIWC-22 linguistic categories.
+    Higher Total Emotion indicates richer emotional vocabulary; higher Tone indicates warmer language.
+  </p>
+
+  <div class="grid" id="charts"></div>
+
+  <div class="insight">
+    <strong>Key insight:</strong> Models adopt fundamentally different empathic strategies.
+    Gemini uses a clinical tone with high emotional acknowledgment.
+    Qwen3-Omni and UniMoE-2.0 are warmer and more supportive, while Baichuan-Omni 1.5 and OLA show the highest tone scores.
+    Smaller models (MiniCPM, VideoLLaMA2) show limited emotional modulation and default to factual reporting.
+  </div>
+</div>
+
+<script>
+const models = [
+  { name: 'Gemini 3.0 Pro', color: '#EB088A' },
+  { name: 'Qwen3-Omni', color: '#3c3c3c' },
+  { name: 'UniMoE-2.0', color: '#8b7cf6' },
+  { name: 'MiniCPM-o-2.6', color: '#38bdf8' },
+  { name: 'Baichuan-Omni 1.5', color: '#34d399' },
+  { name: 'OLA', color: '#fbbf24' },
+  { name: 'VITA 1.5', color: '#fb923c' },
+  { name: 'VideoLLaMA2', color: '#9a9a9a' },
+];
+
+const metrics = [
+  {
+    title: 'Total Emotion',
+    description: '% of words expressing any emotion',
+    key: 'emotion',
+    max: 5.5,
+    unit: '%',
+    values: [4.35, 3.88, 3.54, 1.41, 3.47, 4.02, 2.65, 2.02],
+  },
+  {
+    title: 'Negative Emotion',
+    description: '% of words expressing negative affect',
+    key: 'neg',
+    max: 2.5,
+    unit: '%',
+    values: [2.03, 1.39, 0.93, 0.38, 0.82, 1.15, 0.59, 0.49],
+  },
+  {
+    title: 'Tone (Warmth)',
+    description: 'Overall warmth & positivity (0–100 percentile)',
+    key: 'tone',
+    max: 70,
+    unit: '',
+    values: [46.16, 57.99, 57.94, 46.10, 60.09, 60.00, 55.45, 49.83],
+  },
+];
+
+const container = document.getElementById('charts');
+
+metrics.forEach(metric => {
+  const card = document.createElement('div');
+  card.className = 'metric-card';
+
+  let html = '<h4>' + metric.title + '</h4>';
+  html += '<div class="description">' + metric.description + '</div>';
+
+  // Find best and worst
+  const maxVal = Math.max(...metric.values);
+  const minVal = Math.min(...metric.values);
+
+  models.forEach((m, i) => {
+    const v = metric.values[i];
+    const pct = (v / metric.max * 100).toFixed(1);
+    const isBest = v === maxVal;
+    const opacity = isBest ? 'cc' : '99';
+    html += '<div class="bar-item">' +
+      '<span class="name">' + m.name + '</span>' +
+      '<div class="track"><div class="fill" style="width:' + pct + '%;background:' + m.color + opacity + '">' +
+      '</div></div>' +
+      '<span class="val">' + v.toFixed(v >= 10 ? 1 : 2) + metric.unit + '</span>' +
+      '</div>';
+  });
+
+  card.innerHTML = html;
+  container.appendChild(card);
+});
+</script>
+</body>
+</html>
